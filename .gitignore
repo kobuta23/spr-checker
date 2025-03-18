@@ -9,6 +9,7 @@ build/
 .env
 .env.local
 .env.*.local
+.env.prod
 
 # Logs
 logs
@@ -29,3 +30,4 @@ coverage/
 # OS files
 .DS_Store
 Thumbs.db
+.env.prod
