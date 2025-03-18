@@ -26,45 +26,59 @@ class EligibilityService {
       const allClaimStatuses = await blockchainService.checkAllClaimStatuses(lockerAddresses);
       console.log('allClaimStatuses');
       console.log(allClaimStatuses);
+      let totalFlowRate = 0;
+      for (const pointSystem of config.pointSystems) {
+        // Get total units for this point system
+        const totalUnits = await blockchainService.getTotalUnits(pointSystem.gdaPoolAddress);
+        pointSystem.totalUnits = Number(totalUnits);
+      }
       // Combine the data for each address
       const results = addresses.map(address => {
         const eligibility: PointSystemEligibility[] = [];
         let claimNeeded = false;
         let hasAllocations = false;
         // Process each point system
-        config.pointSystems.forEach(pointSystem => {
-          const { id, name, gdaPoolAddress } = pointSystem;
-          
+        config.pointSystems.forEach(async (pointSystem) => {
+          const { id, name, gdaPoolAddress, flowrate, totalUnits } = pointSystem;
           // Find allocation for this address
           const allocations = allAllocations.get(id) || [];
-          const allocation = allocations.find(a => a?.accountAddress?.toLowerCase() === address.toLowerCase());
-          
+          const { points } = allocations.find(a => a?.accountAddress?.toLowerCase() === address.toLowerCase()) || { points: 0 };
+          let estimatedFlowRate = 0;
+          if(points > 0 && totalUnits > 0) {
+            estimatedFlowRate = Math.floor(Number(points) / Number(totalUnits) * flowrate);
+            totalFlowRate += estimatedFlowRate;
+          }
           // Get claim status for this address and point system
           const claimStatus = allClaimStatuses.get(address)?.get(id);
-          const needToClaim = BigInt(allocation?.points || 0) - (claimStatus || BigInt(0)) > BigInt(0);
-          // Add eligibility data
-          eligibility.push({
+          const needToClaim = BigInt(points) - (claimStatus || BigInt(0)) > BigInt(0);
+
+          const obj = {
             pointSystemId: id,
             pointSystemName: name,
-            eligible: !!allocation && allocation.allocation !== BigInt(0),
-            allocation: (allocation?.points || 0).toString(),
-            claimedAmount: (claimStatus || BigInt(0)).toString(),
+            eligible: points > 0,
+            points,
+            claimedAmount: Number(claimStatus) || 0,
             needToClaim,
-            gdaPoolAddress
-          });
+            gdaPoolAddress,
+            estimatedFlowRate
+          };
+          console.log("obj", obj);
+          // Add eligibility data
+          eligibility.push(obj);
           if(needToClaim) {
             claimNeeded = true;
           }
-          if(allocation?.points && allocation.points > 0) {
+          if(points > 0) {
             hasAllocations = true;
           }
         });
         
         return {
           address,
-          eligibility,
           hasAllocations,
-          claimNeeded
+          claimNeeded,
+          totalFlowRate,
+          eligibility
         };
       });
       

@@ -19,10 +19,11 @@ export interface PointSystemEligibility {
   pointSystemId: number;
   pointSystemName: string;
   eligible: boolean;
-  allocation: string;
-  claimedAmount: string;
+  points: number;
+  claimedAmount: number;
   needToClaim: boolean;
   gdaPoolAddress: string;
+  estimatedFlowRate: number;
 }
 
 export interface AddressEligibility {

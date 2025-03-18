@@ -10,6 +10,13 @@ const gdaPoolAbi = [
     outputs:[{name:"", type:"uint128"}],
     stateMutability:"view",
     type:"function"
+  },
+  {
+    inputs:[],
+    name: "getTotalUnits",
+    outputs:[{name:"", type:"uint128"}],
+    stateMutability:"view",
+    type:"function"
   }
 ] as const;
 
@@ -31,6 +38,19 @@ class BlockchainService {
       chain: base,
       transport: http(config.ethereumRpcUrl)
     });
+  }
+  /**
+   * Check the number of total units in a GDA pool so we can calculate the user's flowrate
+   * @param gdaPoolAddress Address of the GDA pool contract
+   * @returns Promise with total units
+   */
+  async getTotalUnits(gdaPoolAddress: string): Promise<bigint> {
+    const totalUnits = await this.client.readContract({
+      address: gdaPoolAddress as `0x${string}`,
+      abi: gdaPoolAbi,
+      functionName: 'getTotalUnits',
+    });
+    return totalUnits;
   }
 
   /**
