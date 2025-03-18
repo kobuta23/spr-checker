@@ -17,8 +17,49 @@ app.use(express.json()); // Parse JSON bodies
 app.use(requestLogger); // Log requests
 
 // Define routes
-app.get('/api/eligibility', eligibilityController.checkEligibility);
+app.get('/eligibility', eligibilityController.checkEligibility);
 app.get('/health', eligibilityController.healthCheck);
+
+// Function to log all registered routes
+function logRoutes(app: express.Application) {
+  const routes: Array<{ method: string; path: string }> = [];
+  
+  app._router.stack.forEach((middleware: any) => {
+    if (middleware.route) {
+      // Routes registered directly
+      const methods = Object.keys(middleware.route.methods)
+        .filter(method => middleware.route.methods[method])
+        .map(method => method.toUpperCase());
+      
+      routes.push({
+        path: middleware.route.path,
+        method: methods.join(',')
+      });
+    } else if (middleware.name === 'router') {
+      // Router middleware
+      middleware.handle.stack.forEach((handler: any) => {
+        if (handler.route) {
+          const methods = Object.keys(handler.route.methods)
+            .filter(method => handler.route.methods[method])
+            .map(method => method.toUpperCase());
+          
+          routes.push({
+            path: handler.route.path,
+            method: methods.join(',')
+          });
+        }
+      });
+    }
+  });
+  
+  logger.info('REGISTERED ROUTES:');
+  routes.forEach(r => logger.info(`${r.method} ${r.path}`));
+  return routes;
+}
+
+// Log all registered routes
+const registeredRoutes = logRoutes(app);
+logger.slackNotify(`Registered Routes: ${JSON.stringify(registeredRoutes)}`, 'info');
 
 // Handle 404 errors
 app.use((req, res) => {
