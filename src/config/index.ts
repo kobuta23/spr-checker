@@ -40,7 +40,7 @@ const pointSystems: PointSystem[] = [
 ];
 
 const config = {
-  port: process.env.PORT || 3000,
+  port: process.env.PORT || 8000,
   nodeEnv: process.env.NODE_ENV || 'development',
   ethereumRpcUrl: process.env.ETHEREUM_RPC_URL || 'https://mainnet.base.org',
   slackWebhookUrl: process.env.SLACK_WEBHOOK_URL || '',
