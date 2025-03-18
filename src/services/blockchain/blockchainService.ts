@@ -68,7 +68,7 @@ class BlockchainService {
         address: config.lockerFactoryAddress as `0x${string}`,
         abi: getUserLockerAbi,
         functionName: 'getUserLocker',
-        args: [address as `0x${string}`]
+        args: [address.toLowerCase() as `0x${string}`]
       });
       if (exists) {
         lockerAddresses.set(address, lockerAddress);

@@ -6,6 +6,7 @@ import { errorHandler } from './middleware/errorHandler';
 import { requestLogger } from './middleware/requestLogger';
 import config from './config';
 import logger from './utils/logger';
+require('dotenv').config();
 
 // Create Express application
 const app = express();
