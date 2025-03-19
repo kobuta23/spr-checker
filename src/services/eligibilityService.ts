@@ -20,12 +20,24 @@ class EligibilityService {
       console.log(allAllocations);
 
       // Get locker addresses
-      const lockerAddresses = await blockchainService.getLockerAddresses(addresses);
-      console.log(lockerAddresses);
+      let lockerAddresses: Map<string, string> = new Map();
+      try {
+        lockerAddresses = await blockchainService.getLockerAddresses(addresses);
+        console.log(lockerAddresses);
+      } catch (error) {
+        logger.error('Failed to get locker addresses', { error });
+        logger.slackNotify(`Failed to get locker addresses for addresses: ${addresses.join(', ')}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
       // Check claim status on blockchain
-      const allClaimStatuses = await blockchainService.checkAllClaimStatuses(lockerAddresses);
-      console.log('allClaimStatuses');
-      console.log(allClaimStatuses);
+      let allClaimStatuses: Map<string, Map<number, bigint>> = new Map();
+      try {
+        allClaimStatuses = await blockchainService.checkAllClaimStatuses(lockerAddresses);
+        console.log('allClaimStatuses');
+        console.log(allClaimStatuses);
+      } catch (error) {
+        logger.error('Failed to get claim statuses', { error });
+        logger.slackNotify(`Failed to get claim statuses for addresses: ${addresses.join(', ')}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
       let totalFlowRate = 0;
       for (const pointSystem of config.pointSystems) {
         // Get total units for this point system
