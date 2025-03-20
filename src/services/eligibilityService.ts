@@ -56,13 +56,14 @@ class EligibilityService {
           const allocations = allAllocations.get(id) || [];
           const { points } = allocations.find(a => a?.accountAddress?.toLowerCase() === address.toLowerCase()) || { points: 0 };
           let estimatedFlowRate = 0;
+          const claimStatus = allClaimStatuses.get(address)?.get(id);
+          const amountToClaim:number = Number(BigInt(points) - (claimStatus || BigInt(0)));
+          const needToClaim = amountToClaim > 0;
           if(points > 0 && totalUnits > 0) {
-            estimatedFlowRate = Math.floor(Number(points) / Number(totalUnits) * flowrate);
+            estimatedFlowRate = Math.floor(Number(points) / (totalUnits + amountToClaim) * flowrate);
             totalFlowRate += estimatedFlowRate;
           }
           // Get claim status for this address and point system
-          const claimStatus = allClaimStatuses.get(address)?.get(id);
-          const needToClaim = BigInt(points) - (claimStatus || BigInt(0)) > BigInt(0);
 
           const obj = {
             pointSystemId: id,
