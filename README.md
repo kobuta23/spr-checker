@@ -219,6 +219,48 @@ The API checks eligibility across the following point systems:
 
 Each point system corresponds to a GDA pool on the Base network.
 
+## Frontend
+
+A simple frontend application is available in the `frontend` directory. This allows users to:
+
+1. Input an Ethereum address
+2. View a detailed breakdown of flowrates per program
+3. Toggle between viewing flowrates in units/day or units/month
+4. See visual representations of flowrate distributions
+
+The frontend automatically converts the wei/second values from the API into user-friendly units (tokens) by removing the 18 decimals.
+
+### Starting the Frontend
+
+1. Navigate to the frontend directory:
+   ```
+   cd frontend
+   ```
+
+2. Install dependencies (pnpm recommended for faster installation):
+   ```
+   pnpm install  # Recommended for much faster installation
+   ```
+   or
+   ```
+   npm install
+   ```
+
+3. Start the development server:
+   ```
+   pnpm start  # Recommended
+   ```
+   or
+   ```
+   npm start
+   ```
+   or
+   ```
+   npm run dev
+   ```
+
+The frontend will be available at http://localhost:3001 and will automatically connect to the backend API running on port 3000.
+
 ## License
 
 [MIT License](LICENSE)
