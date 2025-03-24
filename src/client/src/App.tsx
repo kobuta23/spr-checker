@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import FlowrateBreakdown from './components/FlowrateBreakdown'
 import { AddressEligibility } from './types'
 import axios from 'axios'
-import UserProfileDisplay, { UserProfile } from './components/UserProfileDisplay'
+import { UserProfile } from './components/UserProfileDisplay'
 import AddAddressForm from './components/AddAddressForm'
 
 function App() {
@@ -20,13 +20,13 @@ function App() {
     const addresses = addressDataList.map(data => data.address);
     const url = new URL(window.location.href);
     
-    // Clear any existing 'address' parameters
-    url.searchParams.delete('address');
+    // Remove all query parameters
+    url.search = '';
     
-    // Add each address as a separate 'address' parameter
-    addresses.forEach(address => {
-      url.searchParams.append('address', address);
-    });
+    // Add addresses as a single comma-separated parameter
+    if (addresses.length > 0) {
+      url.searchParams.set('addresses', addresses.join(','));
+    }
     
     // Update URL without page reload
     window.history.pushState({}, '', url.toString());
@@ -36,9 +36,12 @@ function App() {
   useEffect(() => {
     const loadAddressesFromUrl = async () => {
       const url = new URL(window.location.href);
-      const addressParams = url.searchParams.getAll('address');
       
-      if (addressParams.length === 0) {
+      // Get addresses from the new format (comma-separated)
+      const addressesParam = url.searchParams.get('addresses');
+      const addresses = addressesParam ? addressesParam.split(',') : [];
+      
+      if (addresses.length === 0) {
         setInitialLoadComplete(true);
         return;
       }
@@ -48,7 +51,7 @@ function App() {
       
       try {
         // Fetch data for all addresses
-        const response = await axios.get(`/eligibility?addresses=${addressParams.join(',')}`);
+        const response = await axios.get(`/eligibility?addresses=${addresses.join(',')}`);
         
         if (response.data.results && response.data.results.length > 0) {
           setAddressDataList(response.data.results);
@@ -61,6 +64,7 @@ function App() {
           setError('No data found for the provided addresses');
         }
       } catch (err) {
+        // Error handling
         if (axios.isAxiosError(err) && err.response) {
           setError(err.response.data.message || 'Failed to fetch data for the provided addresses');
         } else {
