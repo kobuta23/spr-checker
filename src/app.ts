@@ -6,6 +6,7 @@ import { errorHandler } from './middleware/errorHandler';
 import { requestLogger } from './middleware/requestLogger';
 import config from './config';
 import logger from './utils/logger';
+import path from 'path';
 require('dotenv').config();
 
 // Create Express application
@@ -20,6 +21,16 @@ app.use(requestLogger); // Log requests
 // Define routes
 app.get('/eligibility', eligibilityController.checkEligibility);
 app.get('/health', eligibilityController.healthCheck);
+
+// Add this after your API routes
+// Serve static files from the React app
+app.use(express.static(path.join(__dirname, 'client/build')));
+
+// The "catchall" handler: for any request that doesn't
+// match an API route, send back the React app's index.html
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'client/build/index.html'));
+});
 
 // Function to log all registered routes
 function logRoutes(app: express.Application) {
