@@ -5,14 +5,14 @@
   "main": "dist/app.js",
   "scripts": {
     "start": "node dist/app.js",
-    "dev": "nodemon --exec ts-node src/app.ts",
+    "dev": "nodemon src/app.ts",
     "build": "npm run build:client && tsc",
     "test": "jest",
     "lint": "eslint . --ext .ts",
     "format": "prettier --write \"src/**/*.ts\"",
-    "build:client": "cd src/client && pnpm install && pnpm run build",
+    "build:client": "cd src/client && npm install && npm run build",
     "postinstall": "npm run build",
-    "pnpm-build": "pnpm install && cd src/client && pnpm install && pnpm run build"
+    "npm-build": "npm install && cd client && npm install && npm run build"
   },
   "keywords": [
     "superfluid",
