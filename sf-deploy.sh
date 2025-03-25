@@ -94,8 +94,9 @@ else
   echo "no .nvmrc provided, using default node version"
 fi
 node --version
-npm ci
-npm run build
+npm install -g pnpm
+pnpm install --frozen-lockfile
+pnpm run build
 cd
 systemctl --user restart $SERVICE_FILE
 systemctl --user -n 50 status $SERVICE_FILE
