@@ -2,7 +2,6 @@ import React, { useState, useMemo } from 'react';
 import { AddressEligibility, PointSystemEligibility } from '../types';
 import UserProfileDisplay, { UserProfile } from '../components/UserProfileDisplay';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
-import AddAddressForm from '../components/AddAddressForm';
 
 // Color configuration for point systems
 const POINT_SYSTEM_COLORS: Record<number, string> = {
@@ -121,8 +120,6 @@ const FlowrateBreakdown = ({
   userProfiles, 
   onAddressCopy, 
   onRemoveUser,
-  onAddAddress,
-  isLoading 
 }: FlowrateBreakdownProps) => {
   const [timeUnit, setTimeUnit] = useState<TimeUnit>('month');
   
@@ -208,11 +205,6 @@ const FlowrateBreakdown = ({
     return data.eligibility.find(item => item.pointSystemId === pointSystemId);
   };
 
-  // Check if any addresses have unclaimed points
-  const hasUnclaimedPoints = dataList.some(data => 
-    data.eligibility.some(item => getUnclaimedPoints(item.points, item.claimedAmount) > 0)
-  );
-  
   return (
     <div className="overflow-x-auto">
       <div className="absolute top-4 right-4">

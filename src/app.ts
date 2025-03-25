@@ -7,6 +7,8 @@ import { requestLogger } from './middleware/requestLogger';
 import config from './config';
 import logger from './utils/logger';
 import path from 'path';
+import * as fs from 'fs';
+import axios from 'axios';
 require('dotenv').config();
 
 // Create Express application
@@ -22,14 +24,46 @@ app.use(requestLogger); // Log requests
 app.get('/eligibility', eligibilityController.checkEligibility);
 app.get('/health', eligibilityController.healthCheck);
 
+// Proxy route for the Superfluid API
+app.get('/api/superfluid/resolve/:address', async (req, res) => {
+  try {
+    const address = req.params.address;
+    const response = await axios.get(`https://whois.superfluid.finance/api/resolve/${address}`);
+    res.json(response.data);
+  } catch (error) {
+    console.error('Error proxying to Superfluid API:', error);
+    res.status(500).json({ error: 'Failed to fetch data from Superfluid API' });
+  }
+});
+
 // Add this after your API routes
 // Serve static files from the React app
-app.use(express.static(path.join(__dirname, 'client/build')));
+app.use(express.static(path.join(__dirname, '../src/client/build')));
 
 // The "catchall" handler: for any request that doesn't
 // match an API route, send back the React app's index.html
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'client/build/index.html'));
+  res.sendFile(path.join(__dirname, '../src/client/build/index.html'));
+});
+
+// Debug paths
+const potentialPaths = [
+  path.join(__dirname, '../src/client/build'),
+  path.join(__dirname, '../client/build'),
+  path.join(__dirname, '../../client/build'),
+  path.join(__dirname, '../../src/client/build')
+];
+
+potentialPaths.forEach(p => {
+  try {
+    console.log(`Checking path: ${p}`);
+    console.log(`Path exists: ${fs.existsSync(p)}`);
+    if (fs.existsSync(p)) {
+      console.log('Files in directory:', fs.readdirSync(p));
+    }
+  } catch (err) {
+    console.log(`Error checking path ${p}:`, (err as Error).message);
+  }
 });
 
 // Function to log all registered routes

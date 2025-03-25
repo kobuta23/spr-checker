@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react'
+import * as React from 'react'
+const { useState, useEffect } = React
 import FlowrateBreakdown from './components/FlowrateBreakdown'
 import { AddressEligibility } from './types'
 import axios from 'axios'
@@ -6,12 +7,12 @@ import { UserProfile } from './components/UserProfileDisplay'
 import AddAddressForm from './components/AddAddressForm'
 
 function App() {
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [addressDataList, setAddressDataList] = useState<AddressEligibility[]>([])
   const [addingAddress, setAddingAddress] = useState(false)
   const [initialLoadComplete, setInitialLoadComplete] = useState(false)
   const [userProfiles, setUserProfiles] = useState<Record<string, UserProfile>>({})
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   // Update URL when addresses change
   useEffect(() => {
@@ -82,7 +83,7 @@ function App() {
   // Function to fetch profile data from Superfluid Whois API
   const fetchUserProfile = async (address: string) => {
     try {
-      const response = await axios.get(`https://whois.superfluid.finance/api/resolve/${address}`);
+      const response = await axios.get(`/api/superfluid/resolve/${address}`);
       const profiles = response.data;
       console.log(response.data);
       // Find the first available profile name to use as display name
@@ -178,18 +179,6 @@ function App() {
     setAddressDataList(prev => prev.filter((_, i) => i !== index))
   }
 
-  // Helper function to copy the current URL to clipboard
-  const copyUrlToClipboard = () => {
-    navigator.clipboard.writeText(window.location.href)
-      .then(() => {
-        // Could add a toast notification here
-        console.log('URL copied to clipboard');
-      })
-      .catch(err => {
-        console.error('Failed to copy URL: ', err);
-      });
-  }
-
   // Helper function to copy address to clipboard
   const copyAddressToClipboard = (address: string) => {
     navigator.clipboard.writeText(address)
@@ -199,11 +188,6 @@ function App() {
       .catch(err => {
         console.error('Failed to copy address: ', err);
       });
-  };
-
-  // Format address for display
-  const formatAddress = (address: string): string => {
-    return `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
   };
 
   return (

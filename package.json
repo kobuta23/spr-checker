@@ -10,8 +10,9 @@
     "test": "jest",
     "lint": "eslint . --ext .ts",
     "format": "prettier --write \"src/**/*.ts\"",
-    "build:client": "cd src/client && npm install && npm run build",
-    "postinstall": "npm run build"
+    "build:client": "cd src/client && pnpm install && pnpm run build",
+    "postinstall": "npm run build",
+    "pnpm-build": "pnpm install && cd src/client && pnpm install && pnpm run build"
   },
   "keywords": [
     "superfluid",
