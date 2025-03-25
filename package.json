@@ -10,7 +10,7 @@
     "test": "jest",
     "lint": "eslint . --ext .ts",
     "format": "prettier --write \"src/**/*.ts\"",
-    "build:client": "cd src/client && npm install && npm run build",
+    "build:client": "cd src/client && npm install --legacy-peer-deps && npm run build && cd ../..",
     "postinstall": "npm run build",
     "npm-build": "npm install && cd client && npm install && npm run build"
   },
