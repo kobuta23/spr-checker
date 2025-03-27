@@ -48,6 +48,13 @@ const pointSystems: PointSystem[] = [
     gdaPoolAddress: '0x5640003112EEaAd042D055D27072e8261d28FCe4',
     flowrate: 902475598864699132,
     totalUnits: 0
+  },
+  {
+    id: 7246,
+    name: 'GoodDollar',
+    gdaPoolAddress: '0x17A9ca096295472b7Ae1ECe9c7C5ad8248B9FF3d',
+    flowrate: 643004115226337429,
+    totalUnits: 0
   }
 ];
 

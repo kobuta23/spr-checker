@@ -15,11 +15,11 @@ export const config = {
             name: 'SuperBoring',
             address: '0xbeF36F4D3fC9b96A5eD5002a3308F768B44Cef7e'
         },
-        // DOESN'T ACTUALLY MAKE SENSE TO CHECK AS THE ADDRESS IS DIFFERENT
-        // {
-        //     name: 'GoodDollar',
-        //     address: '0x17A9ca096295472b7Ae1ECe9c7C5ad8248B9FF3d'
-        // },
+        {
+            id: 7246,
+            name: 'GoodDollar',
+            address: '0x17A9ca096295472b7Ae1ECe9c7C5ad8248B9FF3d'
+        },
         {
             id: 7587,
             name: 'Donations',

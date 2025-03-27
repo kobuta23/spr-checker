@@ -19,6 +19,9 @@ const POINT_SYSTEM_COLORS: Record<number, string> = {
   
   // Donations - Donation-based rewards
   7587: '#10B981', // green-500
+
+  // GoodDollar - GoodDollar-related rewards
+  7246: '#00faff', // light blue
 };
 
 // Get color for a point system ID
@@ -27,7 +30,6 @@ const getPointSystemColor = (pointSystemId: number): string => {
   if (POINT_SYSTEM_COLORS[pointSystemId]) {
     return POINT_SYSTEM_COLORS[pointSystemId];
   }
-  
   // For any new point systems that might be added in the future,
   // use a color based on the ID modulo the number of default colors
   const defaultColors = [

@@ -11,6 +11,7 @@ class EligibilityService {
    * @returns Promise with eligibility data for each address
    */
   async checkEligibility(addresses: string[]): Promise<AddressEligibility[]> {
+    console.log("config file: ", config.pointSystems);
     try {
       // Log the start of the eligibility check
       logger.info(`Checking eligibility for ${addresses.length} addresses`);
