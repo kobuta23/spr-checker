@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Express } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import eligibilityController from './controllers/eligibilityController';
@@ -12,7 +12,7 @@ import axios from 'axios';
 require('dotenv').config();
 
 // Create Express application
-const app = express();
+const app: Express = express();
 
 // Apply middleware
 app.use(helmet()); // Security headers
