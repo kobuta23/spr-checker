@@ -53,7 +53,7 @@ class EligibilityController {
       
       for( const result of results) {
         const {address, hasAllocations, claimNeeded} = result;
-        logger.slackNotify(`Checked <http://main.superfluid.dev:9900/?addresses=${address}|${address}>. *${hasAllocations && claimNeeded ? 'Claim needed' : hasAllocations && !claimNeeded ? 'Is fully claimed' : 'No allocations'}*`, 'info');
+        logger.slackNotify(`Checked <https://superfluid-eligibility-api.s.superfluid.dev/?addresses=${address}|${address}>. *${hasAllocations && claimNeeded ? 'Claim needed' : hasAllocations && !claimNeeded ? 'Is fully claimed' : 'No allocations'}*`, 'info');
       }
       // Log success
       logger.info(`Check completed for ${addresses.length} addresses`);
