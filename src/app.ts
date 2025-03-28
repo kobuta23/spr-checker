@@ -15,7 +15,18 @@ require('dotenv').config();
 const app: Express = express();
 
 // Apply middleware
-app.use(helmet()); // Security headers
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        // Allow images from external domains
+        imgSrc: ["'self'", "data:", "https://euc.li", "https://*.lens.xyz", "https://*.farcaster.xyz", "https://*.ens.domains", "https://i.imgur.com"],
+        // Add other domains as needed
+      },
+    },
+  })
+);
 app.use(cors()); // Enable CORS
 app.use(express.json()); // Parse JSON bodies
 app.use(requestLogger); // Log requests
