@@ -22,11 +22,11 @@ interface UserProfileDisplayProps {
   className?: string;
 }
 
-const proxyImage = (url: string | null): string => {
-  if (!url) return '';
-  console.log("Proxying image:", url); // Add logging
-  return `/api/proxy-image?url=${encodeURIComponent(url)}`;
-};
+// const proxyImage = (url: string | null): string => {
+//   if (!url) return '';
+//   console.log("Proxying image:", url); // Add logging
+//   return `/api/proxy-image?url=${encodeURIComponent(url)}`;
+// };
 
 const UserProfileDisplay: React.FC<UserProfileDisplayProps> = ({
   address,
