@@ -153,6 +153,10 @@ process.on('uncaughtException', (error: Error) => {
   process.exit(1);
 });
 
+// Add this console log to verify loading
+console.log("Registering image proxy routes");
+
+// Make sure the path matches what you're calling from frontend
 app.use('/api', imageProxyRouter);
 
 export default app; 

@@ -24,7 +24,7 @@ interface UserProfileDisplayProps {
 
 const proxyImage = (url: string | null): string => {
   if (!url) return '';
-  // Encode the URL to ensure it's properly passed as a query parameter
+  console.log("Proxying image:", url); // Add logging
   return `/api/proxy-image?url=${encodeURIComponent(url)}`;
 };
 
@@ -73,9 +73,9 @@ const UserProfileDisplay: React.FC<UserProfileDisplayProps> = ({
           className="rounded-full overflow-hidden bg-gray-200 flex items-center justify-center mr-2"
           style={{ width: `${sizeInPixels}px`, height: `${sizeInPixels}px` }}
         >
-          {profile?.avatarUrl ? (
+          {/* {false ? (
             <img src={proxyImage(profile.avatarUrl)} alt="Avatar" className="h-full w-full object-cover" />
-          ) : (
+          ) : ( */}
             <svg 
               className="text-gray-400" 
               style={{ width: `${sizeInPixels * 0.75}px`, height: `${sizeInPixels * 0.75}px` }}
@@ -84,7 +84,7 @@ const UserProfileDisplay: React.FC<UserProfileDisplayProps> = ({
             >
               <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
             </svg>
-          )}
+          {/* )} */}
         </div>
       )}
       
