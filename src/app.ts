@@ -9,6 +9,7 @@ import logger from './utils/logger';
 import path from 'path';
 import * as fs from 'fs';
 import axios from 'axios';
+import imageProxyRouter from './routes/imageProxy';
 require('dotenv').config();
 
 // Create Express application
@@ -151,5 +152,7 @@ process.on('uncaughtException', (error: Error) => {
   // Exit with error
   process.exit(1);
 });
+
+app.use('/api', imageProxyRouter);
 
 export default app; 

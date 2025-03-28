@@ -22,6 +22,12 @@ interface UserProfileDisplayProps {
   className?: string;
 }
 
+const proxyImage = (url: string | null): string => {
+  if (!url) return '';
+  // Encode the URL to ensure it's properly passed as a query parameter
+  return `/api/proxy-image?url=${encodeURIComponent(url)}`;
+};
+
 const UserProfileDisplay: React.FC<UserProfileDisplayProps> = ({
   address,
   profile,
@@ -68,7 +74,7 @@ const UserProfileDisplay: React.FC<UserProfileDisplayProps> = ({
           style={{ width: `${sizeInPixels}px`, height: `${sizeInPixels}px` }}
         >
           {profile?.avatarUrl ? (
-            <img src={profile.avatarUrl} alt="Avatar" className="h-full w-full object-cover" />
+            <img src={proxyImage(profile.avatarUrl)} alt="Avatar" className="h-full w-full object-cover" />
           ) : (
             <svg 
               className="text-gray-400" 
