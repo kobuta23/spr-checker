@@ -1,9 +1,11 @@
-import express from 'express';
+import express, { Router, Request, Response } from 'express';
 import axios from 'axios';
 
-const router = express.Router();
+// Add explicit type annotation for the router
+const router: Router = express.Router();
 
-router.get('/proxy-image', async (req, res) => {
+// Fix the route handler by using the correct types
+router.get('/proxy-image', async (req: Request, res: Response) => {
   const imageUrl = req.query.url as string;
   
   if (!imageUrl) {
@@ -33,7 +35,8 @@ router.get('/proxy-image', async (req, res) => {
     // Optional: Set caching headers
     res.setHeader('Cache-Control', 'public, max-age=86400');
     
-    return res.send(response.data);
+    res.send(response.data);
+    return;
   } catch (error) {
     console.error('Image proxy error:', error);
     return res.status(500).send('Error fetching image');
