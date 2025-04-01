@@ -50,6 +50,7 @@ const saveRecipients = (recipients: UniversalPointRecipient[]): boolean => {
     return true;
   } catch (error) {
     logger.error('Failed to save recipients to storage', { error });
+    logger.slackNotify(`Failed to save recipients to storage ${error}`, 'error');
     return false;
   }
 }

@@ -149,8 +149,6 @@ fi
 
 echo "📂 [REMOTE] Entering application directory: $APP_NAME"
 cd $APP_NAME
-# echo "🔄 [REMOTE] removing data"
-# rm -rf/data/*
 echo "🔄 [REMOTE] Pulling latest code"
 git pull
 if [ -f .nvmrc ]; then
