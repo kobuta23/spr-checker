@@ -66,7 +66,12 @@ const config = {
   stackApiBaseUrl: process.env.STACK_API_BASE_URL || 'https://athena.stack.so',
   pointSystems,
   GDAForwarder: "0x6DA13Bde224A05a288748d857b9e7DDEffd1dE08",
-  lockerFactoryAddress: "0xA6694cAB43713287F7735dADc940b555db9d39D9"
+  lockerFactoryAddress: "0xA6694cAB43713287F7735dADc940b555db9d39D9",
+  POINT_THRESHOLD: 99,
+  POINTS_TO_ASSIGN: 99,
+  COMMUNITY_ACTIVATION_ID: 7370,
+  THRESHOLD_TIME_PERIOD: 3600,
+  THRESHOLD_MAX_USERS: 100,
 };
 
 export default config; 

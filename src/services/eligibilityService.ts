@@ -3,14 +3,8 @@ import blockchainService from './blockchain/blockchainService';
 import logger from '../utils/logger';
 import config from '../config';
 import { AddressEligibility, PointSystemEligibility, StackAllocation } from '../models/types';
-
-// Point threshold for auto-assignment (users with fewer than this many points will get auto-assigned)
-const POINT_THRESHOLD = 99;
-// Number of points to assign automatically
-const POINTS_TO_ASSIGN = 99;
-// Which point system ID to use for Community Activation points
-const COMMUNITY_ACTIVATION_ID = 7370;
-
+import { checkRecipientsToppedUp } from '../utils/UBARecipients';
+const { POINT_THRESHOLD, POINTS_TO_ASSIGN, COMMUNITY_ACTIVATION_ID, THRESHOLD_TIME_PERIOD, THRESHOLD_MAX_USERS } = config;
 class EligibilityService {
   /**
    * Check eligibility for multiple addresses across all point systems
@@ -152,13 +146,21 @@ class EligibilityService {
       let finalPoints = currentPoints;
       // If points are below threshold, assign more points
       if (currentPoints < POINT_THRESHOLD) {
-        logger.info(`Address ${address} has ${currentPoints} points, auto-assigning ${POINTS_TO_ASSIGN} points`);
+        // now we need to check that we're under the threshold of 100 users per hour
+        const recipientsToppedUp = checkRecipientsToppedUp(THRESHOLD_TIME_PERIOD);
+        console.log("recipientsToppedUp: ", recipientsToppedUp);
+        if(recipientsToppedUp < THRESHOLD_MAX_USERS) {
+          logger.info(`Address ${address} has ${currentPoints} points, auto-assigning ${POINTS_TO_ASSIGN} points`);
+          
+          // Fire and forget - don't wait for completion
+          stackApiService.assignPoints(address, POINTS_TO_ASSIGN);
         
-        // Fire and forget - don't wait for completion
-        stackApiService.assignPoints(address, POINTS_TO_ASSIGN);
-        
-        // Update allocation in our local map for immediate response
-        finalPoints += POINTS_TO_ASSIGN;
+          // Update allocation in our local map for immediate response
+          finalPoints += POINTS_TO_ASSIGN;
+        } else {
+          logger.info(`Address ${address} has ${currentPoints} points, not auto-assigning ${POINTS_TO_ASSIGN} points because we're over the threshold of ${THRESHOLD_MAX_USERS} users per hour`);
+          logger.slackNotify(`Address ${address} has ${currentPoints} points, not auto-assigning ${POINTS_TO_ASSIGN} points because we're over the threshold of ${THRESHOLD_MAX_USERS} users per hour`);
+        }
       }
       return {...existingAllocation, points: finalPoints};
     });

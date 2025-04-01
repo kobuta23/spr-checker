@@ -122,6 +122,9 @@ export const getRecipient = (address: string): UniversalPointRecipient | null =>
   }
 }
 
+/**
+ * Check all recipients for eligibility and update their statuses
+ */
 export const checkRecipients = async (): Promise<void> => {
   const recipients = getStoredRecipients();
   const recipientsToCheck = recipients.filter(r => (!r.lockerAddress || !r.claimed) && (!r.lastChecked || new Date(r.lastChecked) < new Date(Date.now() - 1000 * 60 * 60)));
@@ -140,4 +143,14 @@ export const checkRecipients = async (): Promise<void> => {
     recipient.lastChecked = new Date().toISOString();
     updateRecipient(recipient.address, { lastChecked: recipient.lastChecked });
   }
+}
+
+/**
+ * Check how many recipients have been topped up in a given time period
+ * @param timePeriod - The time period in seconds
+ */
+export const checkRecipientsToppedUp = (timePeriod: number): number => {
+  const recipients = getStoredRecipients();
+  const recipientsToCheck = recipients.filter(r => (new Date(r.topUpDate)).getTime() > (new Date()).getTime() - timePeriod*1000);
+  return recipientsToCheck.length;
 }
