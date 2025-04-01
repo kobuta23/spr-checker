@@ -149,8 +149,8 @@ export const checkRecipients = async (): Promise<void> => {
  * Check how many recipients have been topped up in a given time period
  * @param timePeriod - The time period in seconds
  */
-export const checkRecipientsToppedUp = (timePeriod: number): number => {
+export const latestRecipients = (timePeriod: number): UniversalPointRecipient[] => {
   const recipients = getStoredRecipients();
   const recipientsToCheck = recipients.filter(r => (new Date(r.topUpDate)).getTime() > (new Date()).getTime() - timePeriod*1000);
-  return recipientsToCheck.length;
+  return recipientsToCheck;
 }

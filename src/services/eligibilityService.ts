@@ -3,7 +3,7 @@ import blockchainService from './blockchain/blockchainService';
 import logger from '../utils/logger';
 import config from '../config';
 import { AddressEligibility, PointSystemEligibility, StackAllocation } from '../models/types';
-import { checkRecipientsToppedUp } from '../utils/UBARecipients';
+import { checkRecipientsToppedUp, latestRecipients } from '../utils/UBARecipients';
 const { POINT_THRESHOLD, POINTS_TO_ASSIGN, COMMUNITY_ACTIVATION_ID, THRESHOLD_TIME_PERIOD, THRESHOLD_MAX_USERS } = config;
 class EligibilityService {
   /**
@@ -147,7 +147,7 @@ class EligibilityService {
       // If points are below threshold, assign more points
       if (currentPoints < POINT_THRESHOLD) {
         // now we need to check that we're under the threshold of 100 users per hour
-        const recipientsToppedUp = checkRecipientsToppedUp(THRESHOLD_TIME_PERIOD);
+        const recipientsToppedUp = latestRecipients(THRESHOLD_TIME_PERIOD).length;
         console.log("recipientsToppedUp: ", recipientsToppedUp);
         if(recipientsToppedUp < THRESHOLD_MAX_USERS) {
           logger.info(`Address ${address} has ${currentPoints} points, auto-assigning ${POINTS_TO_ASSIGN} points`);

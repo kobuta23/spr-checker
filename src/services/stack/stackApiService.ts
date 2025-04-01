@@ -2,8 +2,9 @@ import axios from 'axios';
 import config from '../../config';
 import logger from '../../utils/logger';
 import { StackApiResponse, StackAllocation } from '../../models/types';
-import { addRecipient } from '../../utils/UBARecipients';
+import { addRecipient, getStoredRecipients, latestRecipients } from '../../utils/UBARecipients';
 const COMMUNITY_ACTIVATION_ID = 7370;
+const { THRESHOLD_TIME_PERIOD } = config;
 
 class StackApiService {
   private baseUrl: string;
@@ -108,7 +109,11 @@ class StackApiService {
       if (response.status >= 200 && response.status < 300) {
         logger.info(`Successfully assigned ${points} points to ${address}`);
         logger.slackNotify(`Successfully assigned ${points} points to ${address}`, 'info');
+        // add recipient to UBARecipients list
         addRecipient({ address });
+        const recipients = getStoredRecipients();
+        const lastHour = latestRecipients(THRESHOLD_TIME_PERIOD).length;
+        logger.slackNotify(`Added ${address} to UBARecipients list. ${recipients.length} recipients in list. ${lastHour} in the last hour `);
         return true;
       } else {
         logger.error(`Failed to assign points, received status ${response.status}`);
