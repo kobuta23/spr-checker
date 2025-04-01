@@ -1,8 +1,7 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { AddressEligibility, PointSystemEligibility } from '../types';
 import UserProfileDisplay, { UserProfile } from '../components/UserProfileDisplay';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
-import axios from 'axios';
 // Color configuration for point systems
 const POINT_SYSTEM_COLORS: Record<number, string> = {
   // Community Activations - Primary community engagement program
