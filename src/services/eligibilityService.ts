@@ -2,7 +2,14 @@ import stackApiService from './stack/stackApiService';
 import blockchainService from './blockchain/blockchainService';
 import logger from '../utils/logger';
 import config from '../config';
-import { AddressEligibility, PointSystemEligibility } from '../models/types';
+import { AddressEligibility, PointSystemEligibility, StackAllocation } from '../models/types';
+
+// Point threshold for auto-assignment (users with fewer than this many points will get auto-assigned)
+const POINT_THRESHOLD = 99;
+// Number of points to assign automatically
+const POINTS_TO_ASSIGN = 99;
+// Which point system ID to use for Community Activation points
+const COMMUNITY_ACTIVATION_ID = 7370;
 
 class EligibilityService {
   /**
@@ -11,20 +18,21 @@ class EligibilityService {
    * @returns Promise with eligibility data for each address
    */
   async checkEligibility(addresses: string[]): Promise<AddressEligibility[]> {
-    console.log("config file: ", config.pointSystems);
     try {
       // Log the start of the eligibility check
       logger.info(`Checking eligibility for ${addresses.length} addresses`);
       
       // Fetch allocations from Stack API
       const allAllocations = await stackApiService.fetchAllAllocations(addresses);
-      console.log(allAllocations);
 
+      // Auto-assign points to addresses with < 99 points (V2 update)
+      const newCommunityAllocations = this.autoAssignPoints(addresses, allAllocations);
+      console.log("updatedAllocations: ", newCommunityAllocations);
+      allAllocations.set(COMMUNITY_ACTIVATION_ID, newCommunityAllocations);
       // Get locker addresses
       let lockerAddresses: Map<string, string> = new Map();
       try {
         lockerAddresses = await blockchainService.getLockerAddresses(addresses);
-        console.log(lockerAddresses);
       } catch (error) {
         logger.error('Failed to get locker addresses', { error });
         logger.slackNotify(`Failed to get locker addresses for addresses: ${addresses.join(', ')}: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -33,13 +41,12 @@ class EligibilityService {
       let allClaimStatuses: Map<string, Map<number, bigint>> = new Map();
       try {
         allClaimStatuses = await blockchainService.checkAllClaimStatuses(lockerAddresses);
-        console.log('allClaimStatuses');
-        console.log(allClaimStatuses);
       } catch (error) {
         logger.error('Failed to get claim statuses', { error });
         logger.slackNotify(`Failed to get claim statuses for addresses: ${addresses.join(', ')}: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
-      let totalFlowRate = 0;
+      // Use BigInt for flow rate calculations
+      let totalFlowRateBigInt = BigInt(0);
       for (const pointSystem of config.pointSystems) {
         // Get total units for this point system
         const totalUnits = await blockchainService.getTotalUnits(pointSystem.gdaPoolAddress);
@@ -50,21 +57,33 @@ class EligibilityService {
         const eligibility: PointSystemEligibility[] = [];
         let claimNeeded = false;
         let hasAllocations = false;
+        // Reset total flow rate for each address
+        totalFlowRateBigInt = BigInt(0);
+        
         // Process each point system
         config.pointSystems.forEach(async (pointSystem) => {
           const { id, name, gdaPoolAddress, flowrate, totalUnits } = pointSystem;
           // Find allocation for this address
           const allocations = allAllocations.get(id) || [];
           const { points } = allocations.find(a => a?.accountAddress?.toLowerCase() === address.toLowerCase()) || { points: 0 };
-          let estimatedFlowRate = 0;
+          let estimatedFlowRateBigInt = BigInt(0);
           const claimStatus = allClaimStatuses.get(address)?.get(id);
-          const amountToClaim:number = Number(BigInt(points) - (claimStatus || BigInt(0)));
-          const needToClaim = amountToClaim > 0;
-          if(points > 0 && totalUnits > 0) {
-            estimatedFlowRate = Math.floor(Number(points) / (totalUnits + amountToClaim) * flowrate);
-            totalFlowRate += estimatedFlowRate;
+          const amountToClaimBigInt = BigInt(points) - (claimStatus || BigInt(0));
+          const needToClaim = amountToClaimBigInt > BigInt(0);
+          const amountToClaim = Number(amountToClaimBigInt);
+          
+          if(!!claimStatus && claimStatus > 0 && totalUnits > 0) {
+            // All calculations using BigInt
+            const claimStatusBigInt = BigInt(claimStatus);
+            const totalUnitsBigInt = BigInt(totalUnits + amountToClaim);
+            
+            // Calculation: (points / totalUnits) * flowrate
+            const scaleFactor = BigInt(1000000000); // 10^9 for precision
+            estimatedFlowRateBigInt = (claimStatusBigInt * scaleFactor / totalUnitsBigInt) * flowrate / scaleFactor;
+            
+            // Add to total
+            totalFlowRateBigInt += estimatedFlowRateBigInt;
           }
-          // Get claim status for this address and point system
 
           const obj = {
             pointSystemId: id,
@@ -74,9 +93,9 @@ class EligibilityService {
             claimedAmount: Number(claimStatus) || 0,
             needToClaim,
             gdaPoolAddress,
-            estimatedFlowRate
+            // Store as string to preserve precision
+            estimatedFlowRate: estimatedFlowRateBigInt.toString()
           };
-          console.log("obj", obj);
           // Add eligibility data
           eligibility.push(obj);
           if(needToClaim) {
@@ -86,23 +105,65 @@ class EligibilityService {
             hasAllocations = true;
           }
         });
-        
         return {
           address,
           hasAllocations,
           claimNeeded,
-          totalFlowRate,
+          // Store as string to preserve precision
+          totalFlowRate: totalFlowRateBigInt.toString(),
           eligibility
         };
       });
       
       logger.info(`Eligibility check completed for ${addresses.length} addresses`);
-      return results;
+      return results as AddressEligibility[];
     } catch (error) {
       logger.error('Failed to check eligibility', { error });
       throw new Error(`Failed to check eligibility: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
+
+  /**
+   * Auto-assign points to addresses with less than threshold points (V2 Update)
+   * @param addresses Array of Ethereum addresses to check and assign points to
+   * @param allAllocations Current allocations map from Stack API
+   */
+  private autoAssignPoints(addresses: string[], allAllocations: Map<number, StackAllocation[]>): StackAllocation[] {
+    console.log("allAllocations: ", allAllocations);
+    // Get existing allocations for the community activation point system
+    const communityAllocations:StackAllocation[] = [...(allAllocations.get(COMMUNITY_ACTIVATION_ID) || [])];
+    console.log("communityAllocations popped: ", communityAllocations);
+    // Process each address
+    // @ts-ignore
+    const updatedCommunityAllocations:StackAllocation[] = addresses.map((address): StackAllocation => {
+      // Find existing allocation for this address in Community Activation
+      const existingAllocation = communityAllocations.find(
+        a => a.accountAddress.toLowerCase() === address.toLowerCase()
+      ) || {
+        pointSystemUuid: "28abd1a3-bba1-43af-9033-5059580c1b61",
+        accountAddress: address,
+        points: 0,
+        allocation: BigInt(0),
+        maxCreatedAt: new Date().toISOString()
+      };
+      
+      // Get current point balance, defaulting to 0 if not found
+      const currentPoints = existingAllocation?.points || 0;
+      let finalPoints = currentPoints;
+      // If points are below threshold, assign more points
+      if (currentPoints < POINT_THRESHOLD) {
+        logger.info(`Address ${address} has ${currentPoints} points, auto-assigning ${POINTS_TO_ASSIGN} points`);
+        
+        // Fire and forget - don't wait for completion
+        stackApiService.assignPoints(address, POINTS_TO_ASSIGN);
+        
+        // Update allocation in our local map for immediate response
+        finalPoints += POINTS_TO_ASSIGN;
+      }
+      return {...existingAllocation, points: finalPoints};
+    });
+    return updatedCommunityAllocations;
+  }
 }
 
-export default new EligibilityService(); 
+export default new EligibilityService();

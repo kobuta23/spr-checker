@@ -10,6 +10,7 @@ import path from 'path';
 import * as fs from 'fs';
 import axios from 'axios';
 import imageProxyRouter from './routes/imageProxy';
+import { getRecipients, checkRecipients } from './utils/UBARecipients';
 require('dotenv').config();
 
 // Create Express application
@@ -35,9 +36,13 @@ app.use(requestLogger); // Log requests
 // Define routes
 app.get('/eligibility', eligibilityController.checkEligibility);
 app.get('/health', eligibilityController.healthCheck);
-
+app.get('/point-systems', eligibilityController.getPointSystems);
+app.get('/recipients', async (req, res) => {
+  const recipients = await getRecipients();
+  res.json(recipients);
+});
 // Proxy route for the Superfluid API
-app.get('/api/superfluid/resolve/:address', async (req, res) => {
+app.get('/superfluid/resolve/:address', async (req, res) => {
   try {
     const address = req.params.address;
     const response = await axios.get(`https://whois.superfluid.finance/api/resolve/${address}`);

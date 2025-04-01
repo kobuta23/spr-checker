@@ -2,14 +2,18 @@ import axios from 'axios';
 import config from '../../config';
 import logger from '../../utils/logger';
 import { StackApiResponse, StackAllocation } from '../../models/types';
+import { addRecipient } from '../../utils/UBARecipients';
+const COMMUNITY_ACTIVATION_ID = 7370;
 
 class StackApiService {
   private baseUrl: string;
   private apiKey: string;
+  private writeApiKey: string;
 
   constructor() {
     this.baseUrl = config.stackApiBaseUrl;
     this.apiKey = process.env.STACK_API_KEY || '';
+    this.writeApiKey = process.env.STACK_WRITE_API_KEY || '';
   }
 
   /**
@@ -63,6 +67,59 @@ class StackApiService {
     );
 
     return allAllocations;
+  }
+
+  /**
+   * Assign points to an address in a specific point system
+   * @param pointSystemId The ID of the point system to assign points in
+   * @param address Ethereum address to assign points to
+   * @param points Number of points to assign
+   * @returns Promise with assignment result
+   */
+  async assignPoints(address: string, points: number): Promise<boolean> {
+    try {
+      // Only proceed if we have a write API key
+      if (!this.writeApiKey) {
+        logger.error('Cannot assign points: STACK_WRITE_API_KEY not set');
+        return false;
+      }
+
+      const url = `https://track.stack.so/event`;
+      // ${this.baseUrl}/point-system/${pointSystemId}/assign`;
+      
+      logger.info(`Assigning ${points} points to ${address} in point system ${COMMUNITY_ACTIVATION_ID}`);
+      const data = [{
+        "name": "universal_allocation",
+        "account": address.toLowerCase(),
+        "pointSystemId": COMMUNITY_ACTIVATION_ID,
+        "uniqueId": `universal-allocation-${address.toLowerCase()}`, // make up a unique id for the allocation
+        "points": points
+      }]
+      const response = await axios.post(url, 
+        data,
+        {
+          headers: {
+            'x-api-key': this.writeApiKey,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      if (response.status >= 200 && response.status < 300) {
+        logger.info(`Successfully assigned ${points} points to ${address}`);
+        logger.slackNotify(`Successfully assigned ${points} points to ${address}`, 'info');
+        addRecipient({ address });
+        return true;
+      } else {
+        logger.error(`Failed to assign points, received status ${response.status}`);
+        logger.slackNotify(`Failed to assign points, received status ${response.status}`, 'error');
+        return false;
+      }
+    } catch (error) {
+      logger.error(`Failed to assign ${points} points to ${address}`, { error });
+      logger.slackNotify(`Failed to assign ${points} points to ${address}`, 'error');
+      return false;
+    }
   }
 }
 

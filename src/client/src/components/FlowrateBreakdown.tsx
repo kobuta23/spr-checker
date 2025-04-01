@@ -1,8 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { AddressEligibility, PointSystemEligibility } from '../types';
 import UserProfileDisplay, { UserProfile } from '../components/UserProfileDisplay';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
-
+import axios from 'axios';
 // Color configuration for point systems
 const POINT_SYSTEM_COLORS: Record<number, string> = {
   // Community Activations - Primary community engagement program
@@ -124,7 +124,7 @@ const FlowrateBreakdown = ({
   onRemoveUser,
 }: FlowrateBreakdownProps) => {
   const [timeUnit, setTimeUnit] = useState<TimeUnit>('month');
-  
+  const [flowratePerUnitInProgram, setFlowratePerUnitInProgram] = useState<Map<number, string>>(new Map());
   // Early return if no data
   if (!dataList.length) return null;
   
@@ -136,8 +136,8 @@ const FlowrateBreakdown = ({
   const addressFlowrates = useMemo(() => {
     return dataList.map(data => {
       // Calculate flowrates for each address
-      let totalClaimedFlowrate = 0;
-      let totalUnclaimedFlowrate = 0;
+      let totalClaimedFlowrateBigInt = BigInt(0);
+      let totalUnclaimedFlowrateBigInt = BigInt(0);
       
       data.eligibility.forEach(item => {
         // Calculate claimed and unclaimed portions of the flowrate
@@ -150,51 +150,80 @@ const FlowrateBreakdown = ({
         
         // Calculate actual (claimed) flowrate
         const claimedProportion = Math.min(item.claimedAmount / item.points, 1);
-        const claimedFlowrate = item.estimatedFlowRate * claimedProportion;
+        const itemFlowRateBigInt = BigInt(item.estimatedFlowRate || '0');
+        
+        // Use BigInt and fixed point for precision
+        const scaleFactor = BigInt(1000000); // 6 decimal places for proportion
+        const claimedProportionFixed = BigInt(Math.floor(claimedProportion * Number(scaleFactor)));
+        
+        const claimedFlowrateBigInt = (itemFlowRateBigInt * claimedProportionFixed) / scaleFactor;
         
         // Calculate unclaimed (potential) flowrate
-        const unclaimedFlowrate = item.needToClaim ? (item.estimatedFlowRate - claimedFlowrate) : 0;
+        const unclaimedFlowrateBigInt = item.needToClaim ? (itemFlowRateBigInt - claimedFlowrateBigInt) : BigInt(0);
         
-        totalClaimedFlowrate += claimedFlowrate;
-        totalUnclaimedFlowrate += unclaimedFlowrate;
+        totalClaimedFlowrateBigInt += claimedFlowrateBigInt;
+        totalUnclaimedFlowrateBigInt += unclaimedFlowrateBigInt;
       });
       
       return {
-        totalClaimedFlowrate,
-        totalUnclaimedFlowrate,
-        totalFlowrate: totalClaimedFlowrate + totalUnclaimedFlowrate
+        totalClaimedFlowrate: totalClaimedFlowrateBigInt.toString(),
+        totalUnclaimedFlowrate: totalUnclaimedFlowrateBigInt.toString(),
+        totalFlowrate: (totalClaimedFlowrateBigInt + totalUnclaimedFlowrateBigInt).toString()
       };
     });
   }, [dataList]);
   
-  // Convert wei/second to unit/day or unit/month without K/M notation
-  const convertFlowRate = (weiPerSecond: number, unit: TimeUnit): string => {
-    if (weiPerSecond === 0) return '0';
+  // Update convertFlowRate to accept string
+  const convertFlowRate = (weiPerSecondStr: string, unit: TimeUnit): string => {
+    const weiPerSecond = BigInt(weiPerSecondStr || '0');
+    if (weiPerSecond === BigInt(0)) return '0';
+    
+    // Handle BigInt calculations for precision
+    // We'll use a fixed-point approach with 18 decimal places
+    const oneEther = BigInt(10) ** BigInt(18);
     
     // Convert wei to units (divide by 10^18)
-    const unitsPerSecond = weiPerSecond / 10**18;
+    // unitsPerSecond is now a rational number represented as a fraction
+    const unitsPerSecondNumerator = weiPerSecond;
+    const unitsPerSecondDenominator = oneEther;
     
     // Convert seconds to days or months
-    const multiplier = unit === 'day' ? 86400 : 2592000; // 86400 seconds in a day, ~2592000 in a month (30 days)
-    const value = unitsPerSecond * multiplier;
+    const multiplier = BigInt(unit === 'day' ? 86400 : 2592000); // 86400 seconds in a day, ~2592000 in a month (30 days)
+    
+    // Compute with extended precision to avoid truncation
+    const valueNumerator = unitsPerSecondNumerator * multiplier;
+    const valueDenominator = unitsPerSecondDenominator;
+    
+    // Convert to decimal for display
+    // Use a high precision division
+    const precisionFactor = BigInt(10) ** BigInt(20); // 20 decimal places
+    const decimalValue = Number((valueNumerator * precisionFactor) / valueDenominator) / Number(precisionFactor);
     
     // Format the number without K/M notation
-    if (value < 0.0001) {
-      return value.toExponential(2);
-    } else if (value < 1) {
-      return value.toFixed(2);
-    } else if (value < 1000) {
-      return value.toFixed(2);
+    if (decimalValue < 0.0001) {
+      return decimalValue.toExponential(2);
+    } else if (decimalValue < 1) {
+      return decimalValue.toFixed(4);
+    } else if (decimalValue < 1000) {
+      return decimalValue.toFixed(2);
     } else {
       // Return the full number with commas for thousands
-      return value.toLocaleString(undefined, { maximumFractionDigits: 2 });
+      return decimalValue.toLocaleString(undefined, { maximumFractionDigits: 2 });
     }
   };
 
   // Get percentage of each program's flowrate relative to total
-  const calculatePercentage = (flowRate: number, totalFlowRate: number) => {
-    if (totalFlowRate === 0 || flowRate === 0) return 0;
-    return (flowRate / totalFlowRate) * 100;
+  const calculatePercentage = (flowRateStr: string, totalFlowRateStr: string) => {
+    const flowRate = BigInt(flowRateStr || '0');
+    const totalFlowRate = BigInt(totalFlowRateStr || '0');
+    
+    if (totalFlowRate === BigInt(0) || flowRate === BigInt(0)) return 0;
+    
+    // Calculate percentage with precision
+    const precisionFactor = BigInt(10000); // 2 decimal places (100.00%)
+    const percentage = Number((flowRate * precisionFactor) / totalFlowRate) / 100;
+    
+    return percentage;
   };
 
   // Calculate unclaimed points
@@ -206,6 +235,25 @@ const FlowrateBreakdown = ({
   const findEligibilityItem = (data: AddressEligibility, pointSystemId: number): PointSystemEligibility | undefined => {
     return data.eligibility.find(item => item.pointSystemId === pointSystemId);
   };
+  
+  
+  useEffect(() => {
+    const fetchFlowratePerUnit = async () => {
+      const flowrateMap = new Map<number, string>();
+      const pointSystems: any = (await axios.get(`/point-systems`));
+      console.log("pointSystems", pointSystems);
+      pointSystems.foreach( (system:any) => {
+        const { flowrate, totalUnits } = system;
+        const ratePerUnit = flowrate / totalUnits;
+        console.log("ratePerUnit", ratePerUnit);
+        const formatted =  convertFlowRate(ratePerUnit.toString(), timeUnit);
+        console.log("formatted", formatted);
+        flowrateMap.set(system.id, formatted);
+      });
+      setFlowratePerUnitInProgram(flowrateMap);
+    };
+    fetchFlowratePerUnit();
+  }, []);
 
   return (
     <div className="overflow-x-auto">
@@ -257,6 +305,7 @@ const FlowrateBreakdown = ({
                       address={data.address}
                       profile={userProfiles[data.address]}
                       onAddressCopy={onAddressCopy}
+                      showAvatar={false}
                     />
                   </div>
                 </th>
@@ -276,6 +325,7 @@ const FlowrateBreakdown = ({
                     style={{ backgroundColor: getPointSystemColor(pointSystemId) }}
                   ></div>
                   <span>{allPointSystems[pointSystemId]}</span>
+                  <span className="text-xs text-gray-500 ml-1">({flowratePerUnit.get(pointSystemId)?.flowrate})</span>
                 </div>
               </td>
               
@@ -294,8 +344,18 @@ const FlowrateBreakdown = ({
                 
                 // Calculate claimed and unclaimed flowrates
                 const claimedProportion = item.points > 0 ? Math.min(item.claimedAmount / item.points, 1) : 0;
-                const claimedFlowrate = item.estimatedFlowRate * claimedProportion;
-                const unclaimedFlowrate = item.needToClaim ? (item.estimatedFlowRate - claimedFlowrate) : 0;
+                
+                // Use BigInt for precision
+                const itemFlowRateBigInt = BigInt(item.estimatedFlowRate || '0');
+                const scaleFactor = BigInt(1000000); // 6 decimal places for proportion
+                const claimedProportionFixed = BigInt(Math.floor(claimedProportion * Number(scaleFactor)));
+                
+                const claimedFlowrateBigInt = (itemFlowRateBigInt * claimedProportionFixed) / scaleFactor;
+                const unclaimedFlowrateBigInt = item.needToClaim ? (itemFlowRateBigInt - claimedFlowrateBigInt) : BigInt(0);
+                
+                const claimedFlowrateStr = claimedFlowrateBigInt.toString();
+                const unclaimedFlowrateStr = unclaimedFlowrateBigInt.toString();
+                
                 const unclaimedPoints = getUnclaimedPoints(item.points, item.claimedAmount);
                 
                 return (
@@ -316,13 +376,13 @@ const FlowrateBreakdown = ({
                       <div className="flex flex-col items-end">
                         {/* Always show claimed flowrate, even if it's zero */}
                         <div className="font-mono text-gray-900">
-                          {convertFlowRate(claimedFlowrate, timeUnit)}
+                          {convertFlowRate(claimedFlowrateStr, timeUnit)}
                         </div>
                         
                         {/* Show unclaimed flowrate on a new line when it exists */}
-                        {unclaimedFlowrate > 0 && (
+                        {unclaimedFlowrateBigInt > BigInt(0) && (
                           <div className="font-mono text-yellow-600 text-sm">
-                            +{convertFlowRate(unclaimedFlowrate, timeUnit)}
+                            +{convertFlowRate(unclaimedFlowrateStr, timeUnit)}
                           </div>
                         )}
                       </div>
@@ -343,7 +403,7 @@ const FlowrateBreakdown = ({
             {dataList.map((data, addressIndex) => {
               // Calculate flowrate data for pie chart
               const flowrateData = data.eligibility
-                .filter(item => item.estimatedFlowRate > 0)
+                .filter(item => BigInt(item.estimatedFlowRate) !== BigInt(0))
                 .map(item => ({
                   pointSystemId: item.pointSystemId,
                   flowrate: calculatePercentage(item.estimatedFlowRate, addressFlowrates[addressIndex].totalFlowrate)
@@ -371,7 +431,7 @@ const FlowrateBreakdown = ({
                         </div>
                         
                         {/* Show unclaimed total flowrate on a new line when it exists */}
-                        {addressFlowrates[addressIndex].totalUnclaimedFlowrate > 0 && (
+                        {addressFlowrates[addressIndex].totalUnclaimedFlowrate !== '0' && (
                           <div className="flex items-center">
                             <strong className="text-yellow-600 font-mono text-sm">
                               +{convertFlowRate(addressFlowrates[addressIndex].totalUnclaimedFlowrate, timeUnit)}
@@ -408,6 +468,7 @@ const FlowrateBreakdown = ({
           </div>
         )}
       </div>
+    
     </div>
   );
 };

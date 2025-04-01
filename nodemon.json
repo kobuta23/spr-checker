@@ -1,0 +1,7 @@
+{
+  "watch": ["src"],
+  "ext": "ts,json",
+  "ignore": ["src/client", "node_modules"],
+  "exec": "ts-node src/app.ts",
+  "legacyWatch": true
+} 

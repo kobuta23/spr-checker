@@ -23,7 +23,7 @@ export interface PointSystemEligibility {
   claimedAmount: number;
   needToClaim: boolean;
   gdaPoolAddress: string;
-  estimatedFlowRate: number;
+  estimatedFlowRate: string; // Changed to string to preserve precision
 }
 
 export interface AddressEligibility {
@@ -31,6 +31,7 @@ export interface AddressEligibility {
   eligibility: PointSystemEligibility[];
   claimNeeded: boolean;
   hasAllocations: boolean;
+  totalFlowRate: string; // Changed to string to preserve precision
 }
 
 // API response types

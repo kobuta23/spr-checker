@@ -83,9 +83,8 @@ function App() {
   // Function to fetch profile data from Superfluid Whois API
   const fetchUserProfile = async (address: string) => {
     try {
-      const response = await axios.get(`/api/superfluid/resolve/${address}`);
+      const response = await axios.get(`/superfluid/resolve/${address}`);
       const profiles = response.data;
-      console.log(response.data);
       // Find the first available profile name to use as display name
       let displayName = null;
       let avatarUrl = null;
