@@ -134,7 +134,7 @@ export const getRecipient = (address: string): UniversalPointRecipient | null =>
  */
 export const checkRecipients = async (): Promise<void> => {
   const recipients = getStoredRecipients();
-  const recipientsToCheck = recipients.filter(r => (!r.lockerAddress || !r.claimed) && (!r.lastChecked || new Date(r.lastChecked) < new Date(Date.now() - 1000 * 60 * 60)));
+  const recipientsToCheck = recipients.filter(r => (!r.lockerAddress || !r.claimed) && (!r.lastChecked || new Date(r.lastChecked) < new Date(Date.now() - 1000 * 60)));
   const recipientAddressList = recipientsToCheck.map(r => r.address);
   const lockerAddresses = await blockchainService.getLockerAddresses(recipientAddressList);
   const claimStatuses = await blockchainService.checkAllClaimStatuses(lockerAddresses);
@@ -150,6 +150,19 @@ export const checkRecipients = async (): Promise<void> => {
     recipient.lastChecked = new Date().toISOString();
     updateRecipient(recipient.address, { lastChecked: recipient.lastChecked });
   }
+}
+
+export const getHighLevelStats = async (): Promise<{
+  totalRecipients: number;
+  totalRecipientsWithLocker: number;
+  totalRecipientsWithClaim: number;
+}> => {
+  const recipients = await getRecipients();
+  return {
+    totalRecipients: recipients.length,
+    totalRecipientsWithLocker: recipients.filter(r => r.lockerAddress).length,
+    totalRecipientsWithClaim: recipients.filter(r => r.claimed).length
+  };
 }
 
 /**
