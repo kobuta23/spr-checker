@@ -46,6 +46,12 @@ export const getRecipients = async (): Promise<UniversalPointRecipient[]> => {
  */
 const saveRecipients = (recipients: UniversalPointRecipient[]): boolean => {
   try {
+    // Create the directory if it doesn't exist
+    const dir = path.dirname(STORAGE_PATH);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    
     fs.writeFileSync(STORAGE_PATH, JSON.stringify(recipients, null, 2));
     return true;
   } catch (error) {
