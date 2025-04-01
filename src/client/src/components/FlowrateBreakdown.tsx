@@ -237,23 +237,23 @@ const FlowrateBreakdown = ({
   };
   
   
-  useEffect(() => {
-    const fetchFlowratePerUnit = async () => {
-      const flowrateMap = new Map<number, string>();
-      const pointSystems: any = (await axios.get(`/point-systems`));
-      console.log("pointSystems", pointSystems);
-      pointSystems.foreach( (system:any) => {
-        const { flowrate, totalUnits } = system;
-        const ratePerUnit = flowrate / totalUnits;
-        console.log("ratePerUnit", ratePerUnit);
-        const formatted =  convertFlowRate(ratePerUnit.toString(), timeUnit);
-        console.log("formatted", formatted);
-        flowrateMap.set(system.id, formatted);
-      });
-      //setFlowratePerUnitInProgram(flowrateMap);
-    };
-    fetchFlowratePerUnit();
-  }, []);
+  // useEffect(() => {
+  //   const fetchFlowratePerUnit = async () => {
+  //     const flowrateMap = new Map<number, string>();
+  //     const pointSystems: any = (await axios.get(`/point-systems`));
+  //     console.log("pointSystems", pointSystems);
+  //     pointSystems.foreach( (system:any) => {
+  //       const { flowrate, totalUnits } = system;
+  //       const ratePerUnit = flowrate / totalUnits;
+  //       console.log("ratePerUnit", ratePerUnit);
+  //       const formatted =  convertFlowRate(ratePerUnit.toString(), timeUnit);
+  //       console.log("formatted", formatted);
+  //       flowrateMap.set(system.id, formatted);
+  //     });
+  //     //setFlowratePerUnitInProgram(flowrateMap);
+  //   };
+  //   fetchFlowratePerUnit();
+  // }, []);
 
   return (
     <div className="overflow-x-auto">
@@ -325,7 +325,7 @@ const FlowrateBreakdown = ({
                     style={{ backgroundColor: getPointSystemColor(pointSystemId) }}
                   ></div>
                   <span>{allPointSystems[pointSystemId]}</span>
-                  <span className="text-xs text-gray-500 ml-1">({flowratePerUnit.get(pointSystemId)?.flowrate})</span>
+                  {/* <span className="text-xs text-gray-500 ml-1">({flowratePerUnit.get(pointSystemId)?.flowrate})</span> */}
                 </div>
               </td>
               
