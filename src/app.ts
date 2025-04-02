@@ -61,6 +61,13 @@ app.get('/superfluid/resolve/:address', async (req, res) => {
 // Add this after your API routes
 // Serve static files from the React app
 app.use(express.static(path.join(__dirname, '../src/client/build')));
+// Serve static files from the 'public' directory
+app.use(express.static(path.join(__dirname, '../src/client/public')));
+
+// Specific route for the visualizer (optional)
+app.get('/visualizer', (req, res) => {
+  res.sendFile(path.join(__dirname, '../src/client/public/visualizer.html'));
+});
 
 // The "catchall" handler: for any request that doesn't
 // match an API route, send back the React app's index.html
