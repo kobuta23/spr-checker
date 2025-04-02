@@ -134,7 +134,7 @@ export const getRecipient = (address: string): UniversalPointRecipient | null =>
  */
 export const checkRecipients = async (): Promise<void> => {
   const recipients = getStoredRecipients();
-  const recipientsToCheck = recipients.filter(r => (!r.lockerAddress || !r.claimed) && (!r.lastChecked || new Date(r.lastChecked) < new Date(Date.now() - 1000 * 60)));
+  const recipientsToCheck = recipients.filter(r => (!r.lockerAddress || !r.claimed) && (!r.lastChecked || new Date(r.lastChecked) < new Date(Date.now() - 1000 * 60 * 20))); // 20 minute cache
   const recipientAddressList = recipientsToCheck.map(r => r.address);
   const lockerAddresses = await blockchainService.getLockerAddresses(recipientAddressList);
   const claimStatuses = await blockchainService.checkAllClaimStatuses(lockerAddresses);
