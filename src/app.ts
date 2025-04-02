@@ -38,7 +38,8 @@ app.get('/eligibility', eligibilityController.checkEligibility);
 app.get('/health', eligibilityController.healthCheck);
 app.get('/point-systems', eligibilityController.getPointSystems);
 app.get('/recipients', async (req, res) => {
-  const recipients = await getRecipients();
+  const cache = Number(req.query.cache); // Default to true if not specified
+  const recipients = await getRecipients(cache);
   res.json(recipients);
 });
 app.get('/recipient-stats', async (req, res) => {
