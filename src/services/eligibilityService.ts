@@ -66,18 +66,35 @@ class EligibilityService {
           const needToClaim = amountToClaimBigInt > BigInt(0);
           const amountToClaim = Number(amountToClaimBigInt);
           
-          if(!!claimStatus && claimStatus > 0 && totalUnits > 0) {
+          // TODO: split into two numbers: "estimated (after claim)", and "estimated (before claim)"
+          // for now, going only with "pre-claim" cos bankless wants
+          if(totalUnits > 0) { // only shows flowrate if the user has claimed. Wrong.  
             // All calculations using BigInt
-            const claimStatusBigInt = BigInt(claimStatus);
+            const claimStatusBigInt = claimStatus;
             const totalUnitsBigInt = BigInt(totalUnits + amountToClaim);
-            
+            const pointsBigInt = BigInt(points);
+            console.log("numbers for calculation of flowrate")
             // Calculation: (points / totalUnits) * flowrate
             const scaleFactor = BigInt(1000000000); // 10^9 for precision
-            estimatedFlowRateBigInt = (claimStatusBigInt * scaleFactor / totalUnitsBigInt) * flowrate / scaleFactor;
+            console.log(`( ${points} * ${scaleFactor} / ${totalUnitsBigInt} ) * ${flowrate} / ${scaleFactor}`);
+            estimatedFlowRateBigInt = (pointsBigInt * scaleFactor / totalUnitsBigInt) * flowrate / scaleFactor;
             
             // Add to total
             totalFlowRateBigInt += estimatedFlowRateBigInt;
           }
+          // if(!!claimStatus && claimStatus > 0 && totalUnits > 0) { // only shows flowrate if the user has claimed. Wrong.  
+          //   // All calculations using BigInt
+          //   const claimStatusBigInt = BigInt(claimStatus);
+          //   const totalUnitsBigInt = BigInt(totalUnits + amountToClaim);
+          //   console.log("numbers for calculation of flowrate")
+          //   // Calculation: (points / totalUnits) * flowrate
+          //   const scaleFactor = BigInt(1000000000); // 10^9 for precision
+          //   console.log(`( ${claimStatusBigInt} * ${scaleFactor} / ${totalUnitsBigInt} ) * ${flowrate} / ${scaleFactor}`);
+          //   estimatedFlowRateBigInt = (claimStatusBigInt * scaleFactor / totalUnitsBigInt) * flowrate / scaleFactor;
+            
+          //   // Add to total
+          //   totalFlowRateBigInt += estimatedFlowRateBigInt;
+          // }
 
           const obj = {
             pointSystemId: id,
