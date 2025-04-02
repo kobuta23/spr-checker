@@ -135,18 +135,16 @@ export const getRecipient = (address: string): UniversalPointRecipient | null =>
 export const checkRecipients = async (cacheInvalidation?:number): Promise<void> => {
   const recipients = getStoredRecipients();
   const cacheInvalidationDuration = cacheInvalidation || 1000 * 60 * 20;
-  const recipientsToCheck = recipients.filter(r => (!r.lockerAddress || !r.claimed) && (!r.lastChecked || new Date(r.lastChecked) < new Date(Date.now() - cacheInvalidationDuration))); // 20 minute cache
+  const recipientsToCheck = recipients.filter(r => !r.lockerAddress && (!r.lastChecked || new Date(r.lastChecked) < new Date(Date.now() - cacheInvalidationDuration))); // 20 minute cache
   const recipientAddressList = recipientsToCheck.map(r => r.address);
-  const lockerAddresses = await blockchainService.getLockerAddresses(recipientAddressList);
-  const claimStatuses = await blockchainService.checkAllClaimStatuses(lockerAddresses);
+  const lockerAddresses = await blockchainService.getLockers(recipientAddressList);
   for (const recipient of recipientsToCheck) {
-    const result = claimStatuses.get(recipient.address);
-    if (result) {
-      updateRecipient(recipient.address, { claimed: true });
-    }
-    const lockerAddress = lockerAddresses.get(recipient.address);
+    const lockerAddress = lockerAddresses.get(recipient.address.toLowerCase());
     if (lockerAddress) {
-      updateRecipient(recipient.address, { lockerAddress: lockerAddress, lockerCheckedDate: new Date().toISOString() });
+      updateRecipient(recipient.address, { 
+        lockerAddress: lockerAddress.lockerAddress,
+        lockerCheckedDate: lockerAddress.blockTimestamp
+      });
     }
     recipient.lastChecked = new Date().toISOString();
     updateRecipient(recipient.address, { lastChecked: recipient.lastChecked });

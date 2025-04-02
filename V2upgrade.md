@@ -40,3 +40,4 @@ The eligibility service will be modified to:
 - Rate limiting should be implemented
 - Stack API write access tokens must be secured
 - Audit logs for point assignments
+

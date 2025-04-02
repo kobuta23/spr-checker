@@ -2,6 +2,7 @@ import { createPublicClient, http } from 'viem';
 import { base } from 'viem/chains';
 import config from '../../config';
 import logger from '../../utils/logger';
+import axios from 'axios';
 
 const gdaPoolAbi = [
   {
@@ -76,6 +77,7 @@ class BlockchainService {
       return BigInt(0);
     }
   }
+
   /**
    * Get the locker addresses for multiple addresses
    * @param addresses Array of Ethereum addresses
@@ -147,6 +149,58 @@ class BlockchainService {
 
     return allClaimStatuses;
   }
+
+  async getLockers(addresses: string[]): Promise<Map<string, {lockerAddress: string, blockTimestamp: string}>> {
+    const lockerAddresses = new Map<string, {lockerAddress: string, blockTimestamp: string}>();
+    let hasMore = true;
+    let skip = 0;
+    const pageSize = 1000;
+
+    const query = `query MyQuery {
+      lockers(first: ${pageSize}, skip: ${skip}, orderBy: blockTimestamp, orderDirection: desc) {
+        lockerOwner
+        id
+        blockTimestamp
+      }
+    }`
+
+
+    while (hasMore) {
+      try {
+        const response = await axios.post(config.LOCKER_GRAPH_URL, {
+          query
+        });
+
+        const lockers = response.data?.data?.lockers || [];
+        
+        // Process lockers and match with addresses we're looking for
+        for (const locker of lockers) {
+          const ownerAddress = locker.lockerOwner.toLowerCase();
+          if (addresses.some(addr => addr.toLowerCase() === ownerAddress)) {
+            lockerAddresses.set(ownerAddress, {lockerAddress: locker.id, blockTimestamp: locker.blockTimestamp});
+          }
+        }
+        // Check if we've found all addresses or need to fetch more pages
+        if (lockerAddresses.size === addresses.length || lockers.length < pageSize) {
+          hasMore = false;
+        } else {
+          skip += pageSize;
+        }
+
+        // Exit early if we've found all addresses
+        if (lockerAddresses.size === addresses.length) {
+          break;
+        }
+
+      } catch (error) {
+        logger.error('Error fetching lockers from subgraph', { error });
+        hasMore = false;
+      }
+    }
+
+    return lockerAddresses;
+  }
+
 }
 
 export default new BlockchainService(); 
