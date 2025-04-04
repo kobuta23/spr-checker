@@ -10,7 +10,7 @@ import path from 'path';
 import * as fs from 'fs';
 import axios from 'axios';
 import imageProxyRouter from './routes/imageProxy';
-import { getRecipients, getHighLevelStats } from './utils/UBARecipients';
+import { getRecipients, getHighLevelStats, getStoredRecipients } from './utils/UBARecipients';
 require('dotenv').config();
 
 // Create Express application
@@ -42,6 +42,12 @@ app.get('/recipients', async (req, res) => {
   const recipients = await getRecipients(cache);
   res.json(recipients);
 });
+
+app.get('/recipients-stored', async (req, res) => {
+  const recipients = await getStoredRecipients();
+  res.json(recipients);
+});
+
 app.get('/recipient-stats', async (req, res) => {
   const stats = await getHighLevelStats();
   res.json(stats);
