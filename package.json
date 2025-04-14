@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node dist/app.js",
     "dev": "nodemon src/app.ts",
+    "dev:client": "cd src/client && pnpm run dev",
     "build": "tsc && pnpm run build:client",
     "test": "jest",
     "lint": "eslint . --ext .ts",

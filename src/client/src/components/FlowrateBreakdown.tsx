@@ -256,7 +256,7 @@ const FlowrateBreakdown = ({
 
   return (
     <div className="overflow-x-auto">
-      <div className="absolute top-4 right-4">                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              ukkk
+      <div className="absolute top-4 right-4">
         <div className="inline-flex rounded-md shadow-sm">
           <button
             onClick={() => setTimeUnit('day')}
@@ -307,6 +307,23 @@ const FlowrateBreakdown = ({
                       showAvatar={false}
                     />
                   </div>
+                </th>
+              </React.Fragment>
+            ))}
+          </tr>
+          {/* Add subheader row for column labels */}
+          <tr className="bg-gray-50">
+            <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-60">
+              &nbsp;
+            </th>
+            {dataList.map((_, index) => (
+              <React.Fragment key={`subheader-${index}`}>
+                <th scope="col" className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-l w-24">
+                  Points
+                </th>
+                <th scope="col" className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
+                  Flowrate
+                  <div className="text-xxs font-normal">SUP/{timeUnit}</div>
                 </th>
               </React.Fragment>
             ))}
@@ -374,14 +391,20 @@ const FlowrateBreakdown = ({
                     <td className="px-3 py-4 text-sm text-right w-24">
                       <div className="flex flex-col items-end">
                         {/* Always show claimed flowrate, even if it's zero */}
-                        <div className="font-mono text-gray-900">
+                        <div className="font-mono text-gray-900 relative group">
                           {convertFlowRate(claimedFlowrateStr, timeUnit)}
+                          <div className="absolute bottom-full mb-1 right-0 hidden group-hover:block bg-gray-800 text-white text-xs rounded py-1 px-2 whitespace-nowrap">
+                            SUP/{timeUnit}
+                          </div>
                         </div>
                         
                         {/* Show unclaimed flowrate on a new line when it exists */}
                         {unclaimedFlowrateBigInt > BigInt(0) && (
-                          <div className="font-mono text-yellow-600 text-sm">
+                          <div className="font-mono text-yellow-600 text-sm relative group">
                             +{convertFlowRate(unclaimedFlowrateStr, timeUnit)}
+                            <div className="absolute bottom-full mb-1 right-0 hidden group-hover:block bg-gray-800 text-white text-xs rounded py-1 px-2 whitespace-nowrap">
+                              SUP/{timeUnit}
+                            </div>
                           </div>
                         )}
                       </div>
@@ -421,23 +444,29 @@ const FlowrateBreakdown = ({
                         />
                       )}
                       <div className="flex flex-col items-end self-center ml-1">
-                        {/* Always show claimed total flowrate, even if it's zero */}
-                        <div className="flex items-center">
-                          <strong className="text-gray-900 font-mono">
-                            {convertFlowRate(addressFlowrates[addressIndex].totalClaimedFlowrate, timeUnit)}
-                          </strong>
-                          <span className="text-xs text-gray-500 ml-1">/{timeUnit}</span>
-                        </div>
-                        
-                        {/* Show unclaimed total flowrate on a new line when it exists */}
-                        {addressFlowrates[addressIndex].totalUnclaimedFlowrate !== '0' && (
+                        {/* And in the totals row */}
+                        <div className="flex flex-col items-end">
                           <div className="flex items-center">
-                            <strong className="text-yellow-600 font-mono text-sm">
-                              +{convertFlowRate(addressFlowrates[addressIndex].totalUnclaimedFlowrate, timeUnit)}
+                            <strong className="text-gray-900 font-mono relative group">
+                              {convertFlowRate(addressFlowrates[addressIndex].totalClaimedFlowrate, timeUnit)}
+                              <div className="absolute bottom-full mb-1 right-0 hidden group-hover:block bg-gray-800 text-white text-xs rounded py-1 px-2 whitespace-nowrap">
+                                SUP/{timeUnit}
+                              </div>
                             </strong>
-                            <span className="text-xs text-gray-500 ml-1">/{timeUnit}</span>
                           </div>
-                        )}
+                          
+                          {/* Show unclaimed total flowrate on a new line when it exists */}
+                          {addressFlowrates[addressIndex].totalUnclaimedFlowrate !== '0' && (
+                            <div className="flex items-center mt-1">
+                              <strong className="text-yellow-600 font-mono text-sm relative group">
+                                +{convertFlowRate(addressFlowrates[addressIndex].totalUnclaimedFlowrate, timeUnit)}
+                                <div className="absolute bottom-full mb-1 right-0 hidden group-hover:block bg-gray-800 text-white text-xs rounded py-1 px-2 whitespace-nowrap">
+                                  SUP/{timeUnit}
+                                </div>
+                              </strong>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </td>

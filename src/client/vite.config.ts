@@ -8,7 +8,7 @@ export default defineConfig({
     port: 3001, // To avoid conflicts with the backend on port 3000
     proxy: {
       '/eligibility': {
-        target: 'http://main.superfluid.dev:9900',
+        target: 'https://superfluid-eligibility-api.s.superfluid.dev',
         changeOrigin: true,
       }
     }
