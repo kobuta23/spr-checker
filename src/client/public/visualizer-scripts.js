@@ -51,14 +51,16 @@
          console.log("Starting data fetch...");
          
          // Properly fetch and parse the data
-         const response = await fetch("/recipients");
+         const response = await fetch("https://superfluid-eligibility-api.s.superfluid.dev/recipients-stored");
          
          if (!response.ok) {
              throw new Error(`HTTP error! Status: ${response.status}`);
          }
+         const responseJSON = await response.json();
+         console.log("recipients.length: ", responseJSON.length);
          
          // Get the JSON data
-         recipients = await response.json();
+         recipients = [...responseJSON, ...oldRecipients];
          console.log("Data loaded:", recipients.length, "recipients");
          
          // Update UI
