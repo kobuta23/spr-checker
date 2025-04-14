@@ -22,6 +22,7 @@ class EligibilityService {
         totalFlowRate: "0",
         eligibility: []
       });
+      logger.slackNotify(`Eligibility check ended early for ${address}. Returned 0`);
     }
     return tempReturnData;
     try {
