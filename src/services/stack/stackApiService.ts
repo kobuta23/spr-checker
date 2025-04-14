@@ -170,9 +170,12 @@ class StackApiService {
           query: JSON.stringify(query)
         }).toString();
 
+        const key = getStackApiKey(pointSystemId) || this.apiKey;
+        console.log("api key being used for point system: ", pointSystemId," : ", key);
+
         const response = await axios.get(url.toString(), {
           headers: {
-            'x-api-key': getStackApiKey(pointSystemId) || this.writeApiKey
+            'x-api-key': key
           }
         });
         console.log(url.toString());
@@ -191,7 +194,7 @@ class StackApiService {
         }
       }
 
-      return formatEvents(allResults);
+      return formatEvents(allResults, pointSystemId);
     } catch (error) {
       logger.error(`Error getting stack activity for ${address} in point system ${pointSystemId}`, { error });
       console.log(error);

@@ -10,6 +10,10 @@ export default defineConfig({
       '/eligibility': {
         target: 'https://superfluid-eligibility-api.s.superfluid.dev',
         changeOrigin: true,
+      },
+      '/stack-activity': {
+        target: 'https://superfluid-stack-activity-api.s.superfluid.dev',
+        changeOrigin: true,
       }
     }
   }

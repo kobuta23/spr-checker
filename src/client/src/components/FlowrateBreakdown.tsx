@@ -1,7 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { AddressEligibility, PointSystemEligibility } from '../types';
 import UserProfileDisplay, { UserProfile } from '../components/UserProfileDisplay';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
+import axios from 'axios';
 // Color configuration for point systems
 const POINT_SYSTEM_COLORS: Record<number, string> = {
   // Community Activations - Primary community engagement program
@@ -116,6 +117,37 @@ const FlowratePieChart = ({
   );
 };
 
+// New interfaces for stack-activity
+interface StackActivity {
+  identity: {
+    address: string;
+    ensName: string | null;
+    farcasterUsername: string | null;
+    lensHandle: string | null;
+    farcasterPfpUrl: string | null;
+  };
+  events: {
+    eventType: string;
+    timestamp: string;
+    points: number;
+  }[];
+  aggregates: {
+    eventType: string;
+    totalPoints: number;
+    count: number;
+    firstTimestamp: string;
+    lastTimestamp: string;
+  }[];
+}
+
+interface ExpandedActivities {
+  [key: string]: { // key is `${pointSystemId}-${address}`
+    isLoading: boolean;
+    error: string | null;
+    data: StackActivity | null;
+  }
+}
+
 const FlowrateBreakdown = ({ 
   dataList, 
   userProfiles, 
@@ -123,6 +155,7 @@ const FlowrateBreakdown = ({
   onRemoveUser,
 }: FlowrateBreakdownProps) => {
   const [timeUnit, setTimeUnit] = useState<TimeUnit>('month');
+  const [expandedActivities, setExpandedActivities] = useState<ExpandedActivities>({});
   //const [flowratePerUnitInProgram, setFlowratePerUnitInProgram] = useState<Map<number, string>>(new Map());
   // Early return if no data
   if (!dataList.length) return null;
@@ -235,7 +268,131 @@ const FlowrateBreakdown = ({
     return data.eligibility.find(item => item.pointSystemId === pointSystemId);
   };
   
+  // Load stack-activity data for a single address
+  const loadStackActivity = useCallback(async (address: string, pointSystemId: number, forceCollapse = false) => {
+    const activityKey = `${pointSystemId}-${address}`;
+    
+    // Check if already expanded - if so, collapse it
+    if ((expandedActivities[activityKey] && expandedActivities[activityKey].data) || forceCollapse) {
+      setExpandedActivities(prev => {
+        const newState = { ...prev };
+        delete newState[activityKey];
+        return newState;
+      });
+      return;
+    }
+    
+    // Set loading state
+    setExpandedActivities(prev => ({
+      ...prev,
+      [activityKey]: {
+        isLoading: true,
+        error: null,
+        data: null
+      }
+    }));
+    
+    try {
+      const response = await axios.get(`/stack-activity?address=${address}&point-system-id=${pointSystemId}`);
+      setExpandedActivities(prev => ({
+        ...prev,
+        [activityKey]: {
+          isLoading: false,
+          error: null,
+          data: response.data
+        }
+      }));
+    } catch (error) {
+      let errorMessage = 'Failed to load activity data';
+      if (axios.isAxiosError(error) && error.response) {
+        errorMessage = error.response.data.message || errorMessage;
+      }
+      
+      setExpandedActivities(prev => ({
+        ...prev,
+        [activityKey]: {
+          isLoading: false,
+          error: errorMessage,
+          data: null
+        }
+      }));
+    }
+  }, [expandedActivities]);
+
+  // Load stack activity data for all addresses for a specific point system
+  const loadStackActivityForProgram = useCallback(async (pointSystemId: number) => {
+    // Check if any address for this point system is already expanded
+    const isAnyExpanded = dataList.some(data => 
+      expandedActivities[`${pointSystemId}-${data.address}`] && 
+      expandedActivities[`${pointSystemId}-${data.address}`].data
+    );
+    
+    if (isAnyExpanded) {
+      // If any are expanded, collapse all for this point system
+      for (const data of dataList) {
+        await loadStackActivity(data.address, pointSystemId, true);
+      }
+    } else {
+      // Otherwise, expand all for this point system
+      for (const data of dataList) {
+        await loadStackActivity(data.address, pointSystemId);
+      }
+    }
+  }, [dataList, expandedActivities, loadStackActivity]);
+
+  // Calculate flowrate for an individual activity based on point proportion
+  const calculateActivityFlowrate = (
+    activityPoints: number,
+    totalPoints: number,
+    totalFlowrate: string
+  ): string => {
+    if (totalPoints === 0 || activityPoints === 0) return '0';
+    
+    const proportion = activityPoints / totalPoints;
+    const flowrateBigInt = BigInt(totalFlowrate || '0');
+    
+    // Use BigInt for precision
+    const scaleFactor = BigInt(1000000); // 6 decimal places
+    const proportionScaled = BigInt(Math.floor(proportion * Number(scaleFactor)));
+    
+    const activityFlowrateBigInt = (flowrateBigInt * proportionScaled) / scaleFactor;
+    return activityFlowrateBigInt.toString();
+  };
   
+  // Add useEffect to handle auto-expanding activities for new users
+  useEffect(() => {
+    // Get all point systems that are currently expanded for any address
+    const expandedPointSystems = new Set<number>();
+    
+    Object.keys(expandedActivities).forEach(key => {
+      const [pointSystemId] = key.split('-');
+      if (expandedActivities[key].data) {
+        expandedPointSystems.add(Number(pointSystemId));
+      }
+    });
+    
+    // If there are any expanded point systems and we have addresses
+    if (expandedPointSystems.size > 0 && dataList.length > 0) {
+      // Check each expanded point system
+      expandedPointSystems.forEach(pointSystemId => {
+        // For each address, check if it already has activity data
+        dataList.forEach(data => {
+          const activityKey = `${pointSystemId}-${data.address}`;
+          
+          // If this address doesn't have activity data for this point system,
+          // but other addresses do, then load data for this address too
+          if (!expandedActivities[activityKey]) {
+            // Use a setTimeout to avoid too many simultaneous requests
+            // and to let the component render first
+            setTimeout(() => {
+              loadStackActivity(data.address, pointSystemId);
+            }, 100);
+          }
+        });
+      });
+    }
+  }, [dataList, expandedActivities, loadStackActivity]);
+
   // useEffect(() => {
   //   const fetchFlowratePerUnit = async () => {
   //     const flowrateMap = new Map<number, string>();
@@ -255,7 +412,7 @@ const FlowrateBreakdown = ({
   // }, []);
 
   return (
-    <div className="overflow-x-auto">
+    <div>
       <div className="absolute top-4 right-4">
         <div className="inline-flex rounded-md shadow-sm">
           <button
@@ -333,86 +490,234 @@ const FlowrateBreakdown = ({
         <tbody className="divide-y divide-gray-200 bg-white">
           {/* Rows for each point system */}
           {pointSystemIds.map(pointSystemId => (
-            <tr key={`system-${pointSystemId}`}>
-              <td className="py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6 truncate w-60">
-                <div className="flex items-center">
-                  <div 
-                    className="w-3 h-3 rounded-full mr-2 flex-shrink-0" 
-                    style={{ backgroundColor: getPointSystemColor(pointSystemId) }}
-                  ></div>
-                  <span>{allPointSystems[pointSystemId]}</span>
-                  {/* <span className="text-xs text-gray-500 ml-1">({flowratePerUnit.get(pointSystemId)?.flowrate})</span> */}
-                </div>
-              </td>
-              
-              {/* Data cells for each address */}
-              {dataList.map((data, addressIndex) => {
-                const item = findEligibilityItem(data, pointSystemId);
-                if (!item) {
-                  // No data for this point system for this address
-                  return (
-                    <React.Fragment key={`empty-${addressIndex}-${pointSystemId}`}>
-                      <td className="px-3 py-4 text-sm text-gray-500 text-right border-l w-24">-</td>
-                      <td className="px-3 py-4 text-sm text-gray-500 text-right w-24">-</td>
-                    </React.Fragment>
-                  );
-                }
-                
-                // Calculate claimed and unclaimed flowrates
-                const claimedProportion = item.points > 0 ? Math.min(item.claimedAmount / item.points, 1) : 0;
-                
-                // Use BigInt for precision
-                const itemFlowRateBigInt = BigInt(item.estimatedFlowRate || '0');
-                const scaleFactor = BigInt(1000000); // 6 decimal places for proportion
-                const claimedProportionFixed = BigInt(Math.floor(claimedProportion * Number(scaleFactor)));
-                
-                const claimedFlowrateBigInt = (itemFlowRateBigInt * claimedProportionFixed) / scaleFactor;
-                const unclaimedFlowrateBigInt = item.needToClaim ? (itemFlowRateBigInt - claimedFlowrateBigInt) : BigInt(0);
-                
-                const claimedFlowrateStr = claimedFlowrateBigInt.toString();
-                const unclaimedFlowrateStr = unclaimedFlowrateBigInt.toString();
-                
-                const unclaimedPoints = getUnclaimedPoints(item.points, item.claimedAmount);
-                
-                return (
-                  <React.Fragment key={`data-${addressIndex}-${pointSystemId}`}>
-                    <td className="px-3 py-4 text-sm text-right font-mono border-l w-24">
-                      <div className="flex flex-col items-end">
-                        <div>
-                          <span className="text-gray-900">{item.claimedAmount.toLocaleString()}</span>
-                        </div>
-                        {unclaimedPoints > 0 && (
-                          <div className="text-xs text-yellow-600 mt-0.5 block">
-                            +{unclaimedPoints.toLocaleString()}
-                          </div>
+            <React.Fragment key={`system-fragment-${pointSystemId}`}>
+              <tr key={`system-${pointSystemId}`} className={`${dataList.some(data => !!expandedActivities[`${pointSystemId}-${data.address}`]) ? 'bg-blue-50 border-l-4 border-l-blue-300' : ''}`}>
+                <td className="py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6 truncate w-60">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center">
+                      <div 
+                        className="w-3 h-3 rounded-full mr-2 flex-shrink-0" 
+                        style={{ backgroundColor: getPointSystemColor(pointSystemId) }}
+                      ></div>
+                      <span>{allPointSystems[pointSystemId]}</span>
+                    </div>
+                    
+                    {/* Add expand/collapse button */}
+                    <button
+                      onClick={() => loadStackActivityForProgram(pointSystemId)}
+                      className={`ml-2 focus:outline-none ${dataList.some(data => !!expandedActivities[`${pointSystemId}-${data.address}`]) ? 'text-blue-500 hover:text-blue-700' : 'text-gray-400 hover:text-gray-600'}`}
+                      title={dataList.some(data => !!expandedActivities[`${pointSystemId}-${data.address}`]) ? "Collapse activities" : "Expand activities"}
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        {dataList.some(data => !!expandedActivities[`${pointSystemId}-${data.address}`]) ? (
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 12H6" />
+                        ) : (
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                         )}
-                      </div>
-                    </td>
-                    <td className="px-3 py-4 text-sm text-right w-24">
-                      <div className="flex flex-col items-end">
-                        {/* Always show claimed flowrate, even if it's zero */}
-                        <div className="font-mono text-gray-900 relative group">
-                          {convertFlowRate(claimedFlowrateStr, timeUnit)}
-                          <div className="absolute bottom-full mb-1 right-0 hidden group-hover:block bg-gray-800 text-white text-xs rounded py-1 px-2 whitespace-nowrap">
-                            SUP/{timeUnit}
+                      </svg>
+                    </button>
+                  </div>
+                </td>
+                
+                {/* Data cells for each address */}
+                {dataList.map((data, addressIndex) => {
+                  const item = findEligibilityItem(data, pointSystemId);
+                  if (!item) {
+                    // No data for this point system for this address
+                    return (
+                      <React.Fragment key={`empty-${addressIndex}-${pointSystemId}`}>
+                        <td className="px-3 py-4 text-sm text-gray-500 text-right border-l w-24">-</td>
+                        <td className="px-3 py-4 text-sm text-gray-500 text-right w-24">-</td>
+                      </React.Fragment>
+                    );
+                  }
+                  
+                  // Calculate claimed and unclaimed flowrates
+                  const claimedProportion = item.points > 0 ? Math.min(item.claimedAmount / item.points, 1) : 0;
+                  
+                  // Use BigInt for precision
+                  const itemFlowRateBigInt = BigInt(item.estimatedFlowRate || '0');
+                  const scaleFactor = BigInt(1000000); // 6 decimal places for proportion
+                  const claimedProportionFixed = BigInt(Math.floor(claimedProportion * Number(scaleFactor)));
+                  
+                  const claimedFlowrateBigInt = (itemFlowRateBigInt * claimedProportionFixed) / scaleFactor;
+                  const unclaimedFlowrateBigInt = item.needToClaim ? (itemFlowRateBigInt - claimedFlowrateBigInt) : BigInt(0);
+                  
+                  const claimedFlowrateStr = claimedFlowrateBigInt.toString();
+                  const unclaimedFlowrateStr = unclaimedFlowrateBigInt.toString();
+                  
+                  const unclaimedPoints = getUnclaimedPoints(item.points, item.claimedAmount);
+                  
+                  // Check if this address has expanded activities
+                  const activityKey = `${pointSystemId}-${data.address}`;
+                  const hasExpandedActivities = !!expandedActivities[activityKey];
+                  
+                  return (
+                    <React.Fragment key={`data-${addressIndex}-${pointSystemId}`}>
+                      <td className="px-3 py-4 text-sm text-right font-mono border-l w-24 relative">
+                        <div className="flex flex-col items-end">
+                          <div>
+                            <span className="text-gray-900">{item.claimedAmount.toLocaleString()}</span>
                           </div>
+                          {unclaimedPoints > 0 && (
+                            <div className="text-xs text-yellow-600 mt-0.5 block">
+                              +{unclaimedPoints.toLocaleString()}
+                            </div>
+                          )}
                         </div>
-                        
-                        {/* Show unclaimed flowrate on a new line when it exists */}
-                        {unclaimedFlowrateBigInt > BigInt(0) && (
-                          <div className="font-mono text-yellow-600 text-sm relative group">
-                            +{convertFlowRate(unclaimedFlowrateStr, timeUnit)}
+                      </td>
+                      <td className="px-3 py-4 text-sm text-right w-24">
+                        <div className="flex flex-col items-end">
+                          {/* Always show claimed flowrate, even if it's zero */}
+                          <div className="font-mono text-gray-900 relative group">
+                            {convertFlowRate(claimedFlowrateStr, timeUnit)}
                             <div className="absolute bottom-full mb-1 right-0 hidden group-hover:block bg-gray-800 text-white text-xs rounded py-1 px-2 whitespace-nowrap">
                               SUP/{timeUnit}
                             </div>
                           </div>
-                        )}
-                      </div>
-                    </td>
-                  </React.Fragment>
-                );
-              })}
-            </tr>
+                          
+                          {/* Show unclaimed flowrate on a new line when it exists */}
+                          {unclaimedFlowrateBigInt > BigInt(0) && (
+                            <div className="font-mono text-yellow-600 text-sm relative group">
+                              +{convertFlowRate(unclaimedFlowrateStr, timeUnit)}
+                              <div className="absolute bottom-full mb-1 right-0 hidden group-hover:block bg-gray-800 text-white text-xs rounded py-1 px-2 whitespace-nowrap">
+                                SUP/{timeUnit}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                    </React.Fragment>
+                  );
+                })}
+              </tr>
+              
+              {/* Activity Rows - conditionally rendered */}
+              {(() => {
+                // First check if any address for this point system has activity data
+                const hasAnyActivityData = dataList.some(data => {
+                  const activityKey = `${pointSystemId}-${data.address}`;
+                  const activityData = expandedActivities[activityKey];
+                  return activityData?.data?.aggregates?.length > 0;
+                });
+
+                // Check if all expanded addresses are loaded (not in loading state)
+                const expandedAndLoaded = dataList.filter(data => {
+                  const activityKey = `${pointSystemId}-${data.address}`;
+                  const activityData = expandedActivities[activityKey];
+                  return activityData && !activityData.isLoading;
+                });
+
+                // Only show the "no activities" message if there are expanded addresses, 
+                // they're all loaded, and none have activities
+                if (expandedAndLoaded.length > 0 && !hasAnyActivityData) {
+                  return (
+                    <tr key={`activity-empty-all-${pointSystemId}`} className="border-t border-gray-100">
+                      <td colSpan={1 + 2 * dataList.length} className="px-4 py-2 text-sm text-gray-500 bg-blue-50/50">
+                        <div className="flex items-center pl-8">
+                          No activities found for any user
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                }
+
+                // Map over addresses to show loading states or activities
+                return dataList.map((data, addressIndex) => {
+                  const activityKey = `${pointSystemId}-${data.address}`;
+                  const activityData = expandedActivities[activityKey];
+                  
+                  // Skip if not expanded
+                  if (!activityData) return null;
+                  
+                  const item = findEligibilityItem(data, pointSystemId);
+                  if (!item) return null;
+                  
+                  // Show loading state
+                  if (activityData.isLoading) {
+                    return (
+                      <tr key={`activity-loading-${activityKey}`} className="border-t border-gray-100">
+                        <td colSpan={1 + 2 * dataList.length} className="px-4 py-2 text-sm text-gray-500 bg-blue-50/50">
+                          <div className="flex items-center pl-8">
+                            <svg className="animate-spin h-4 w-4 mr-2 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Loading activities for {data.address.substring(0, 6)}...{data.address.substring(data.address.length - 4)}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  }
+                  
+                  // Show error state
+                  if (activityData.error) {
+                    return (
+                      <tr key={`activity-error-${activityKey}`} className="border-t border-gray-100">
+                        <td colSpan={1 + 2 * dataList.length} className="px-4 py-2 text-sm text-red-500 bg-blue-50/50">
+                          <div className="flex items-center pl-8">
+                            <svg className="h-4 w-4 mr-2 text-red-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                            {activityData.error} for {data.address.substring(0, 6)}...{data.address.substring(data.address.length - 4)}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  }
+                  
+                  // Skip if no activities for this address
+                  if (!activityData.data?.aggregates?.length) return null;
+                  
+                  // Show activities
+                  return activityData.data.aggregates.map((activity, activityIndex) => {
+                    // Calculate flowrate for this activity based on points proportion
+                    const activityFlowrateStr = calculateActivityFlowrate(
+                      activity.totalPoints,
+                      item.points || 1, // Prevent division by zero if points is 0
+                      item.estimatedFlowRate
+                    );
+                    
+                    return (
+                      <tr 
+                        key={`activity-${activityKey}-${activityIndex}`}
+                        className={`bg-blue-50/50 ${activityIndex === 0 ? 'border-t border-gray-100' : ''}`}
+                      >
+                        <td className="py-2 pl-12 pr-3 text-xs text-gray-700 w-60">
+                          <div className="flex items-center">
+                            <div className="w-5 border-l-2 border-b-2 border-gray-300 h-3 mr-2"></div>
+                            <span className="font-medium">{activity.eventType}</span>
+                          </div>
+                        </td>
+                        
+                        {dataList.map((d, dIndex) => {
+                          // Only show activity details for the matching address
+                          if (dIndex !== addressIndex) {
+                            return (
+                              <React.Fragment key={`activity-empty-cell-${activityKey}-${activityIndex}-${dIndex}`}>
+                                <td className="px-3 py-2 text-xs text-gray-400 text-right border-l w-24">-</td>
+                                <td className="px-3 py-2 text-xs text-gray-400 text-right w-24">-</td>
+                              </React.Fragment>
+                            );
+                          }
+                          
+                          return (
+                            <React.Fragment key={`activity-data-${activityKey}-${activityIndex}-${dIndex}`}>
+                              <td className="px-3 py-2 text-xs text-right font-mono border-l w-24">
+                                {activity.totalPoints.toLocaleString()}
+                              </td>
+                              <td className="px-3 py-2 text-xs text-right font-mono w-24">
+                                {convertFlowRate(activityFlowrateStr, timeUnit)}
+                              </td>
+                            </React.Fragment>
+                          );
+                        })}
+                      </tr>
+                    );
+                  });
+                });
+              })()}
+            </React.Fragment>
           ))}
           
           {/* Total row at the bottom */}

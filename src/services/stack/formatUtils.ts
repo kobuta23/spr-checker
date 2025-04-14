@@ -42,7 +42,7 @@ export interface FormattedStackEvents {
   aggregates: EventTypeAggregate[];
 }
 
-export function formatEvents(events: StackEvent[]): FormattedStackEvents {
+export function formatEvents(events: StackEvent[], pointSystemId?: number): FormattedStackEvents {
   if (!events.length) {
     return {
       identity: {
@@ -78,7 +78,7 @@ export function formatEvents(events: StackEvent[]): FormattedStackEvents {
   const aggregateMap = new Map<string, EventTypeAggregate>();
 
   events.forEach(event => {
-    const eventType = getEventTypeDisplay(event.eventType);
+    const eventType = getEventTypeDisplay(event.eventType, pointSystemId);
     const existing = aggregateMap.get(eventType);
     if (existing) {
       existing.totalPoints += event.points;
@@ -110,7 +110,11 @@ export function formatEvents(events: StackEvent[]): FormattedStackEvents {
 
 const eventTypeAliases: Record<string, string> = {
     'csv_upload_2025-02-21T14:17:14.178Z': "POAPs",
-    "nft_mint_8453_0xD03c97b668267f5F582cFc88D7826c5440610a7e": "Minted AstroBlock Spaceship"
+    "nft_mint_8453_0xD03c97b668267f5F582cFc88D7826c5440610a7e": "Minted AstroBlock Spaceship",
+    'ricDataPoints': "Used Ricochet",
+    "fractionDataPoints": "FRACTION holder",
+    "planet-ix-open-stream": "PlanetIX user",
+    "universal_allocation": "Universal Allocation",
 }
 
 const farcasterAliases: Record<string, string> = {
@@ -123,7 +127,7 @@ const farcasterAliases: Record<string, string> = {
     "874347": "AstroBlock",
 };
 
-export const getEventTypeDisplay = (eventType: string): string => {
+export const getEventTypeDisplay = (eventType: string, pointSystemId?: number): string => {
     if (eventType.includes('farcaster_account_')) {
         return `Followed ${farcasterAliases[eventType.split('_')[2]]} on Farcaster`;
     } else if (eventType.includes('nft_mint_8453_0xE09cBb896373bB244CFC2BdaF59B3603A31014D0')) {
@@ -131,7 +135,14 @@ export const getEventTypeDisplay = (eventType: string): string => {
     } else if (eventType.includes('0xcd4e576ba1B74692dBc158c5F399269Ec4739577')) {
         return `Minted Ecosystem Rewards Pass`;
     } else if (eventType.includes('daily_points')) {
-        return `AlfaFrens Daily Points`;
+        console.log("point system id: ", pointSystemId);
+        if (pointSystemId === 7585) {
+            return `SuperBoring Daily Volume`;
+        } else if (pointSystemId === 7584) {
+            return `AlfaFrens Daily Volume`;
+        }
+    } else if (eventType.includes('octant_points')) {
+        return `Donation Volume`;
     }
     return eventTypeAliases[eventType] || eventType;
 };
