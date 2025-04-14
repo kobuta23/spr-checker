@@ -72,6 +72,10 @@ app.get('/superfluid/resolve/:address', async (req, res) => {
 
 app.get('/stack-activity', async (req, res) => {
   const address = req.query.address as string;
+  // check if address is valid
+  if (!address || !/^(0x)?[0-9a-fA-F]{40}$/.test(address)) {
+    return res.status(400).json({ error: 'Invalid address' });
+  }
   const pointSystemId = req.query['point-system-id'] ? Number(req.query['point-system-id']) : undefined;
   if (!pointSystemId) {
     const stackActivity = await stackApiService.getStackActivityForAllPointSystems(address);

@@ -179,6 +179,8 @@ class StackApiService {
         console.log(this.apiKey);
 
         const results = response.data;
+        console.log("results: ", results);
+        console.log("results.length: ", results.length);
         allResults = [...allResults, ...results];
 
         // Check if we got less results than limit, meaning no more pages
