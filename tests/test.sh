@@ -1,0 +1,2 @@
+curl "https://athena.stack.so/point-system/7370/events?query=%7B%22limit%22%3A25%2C%22offset%22%3A0%2C%22where%22%3A%7B%22associatedAccount%22%3A%220x09A900eB2ff6e9AcA12d4d1a396DdC9bE0307661%22%7D%2C%22orderBy%22%3A%5B%7B%22eventTimestamp%22%3A%22desc%22%7D%2C%7B%22associatedAccount%22%3A%22asc%22%7D%5D%7D&enabled=true&refetchInterval=30000" \
+  -H "x-api-key: cbbff38b-331e-4a16-bfb0-f64dbc3ed580" > stack_query_results.json
