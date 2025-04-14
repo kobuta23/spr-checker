@@ -12,6 +12,18 @@ class EligibilityService {
    * @returns Promise with eligibility data for each address
    */
   async checkEligibility(addresses: string[]): Promise<AddressEligibility[]> {
+    // momentarily just return true
+    const tempReturnData: AddressEligibility[] = [];
+    for(const address of addresses) {
+      tempReturnData.push({
+        address,
+        hasAllocations: false,
+        claimNeeded: false,
+        totalFlowRate: "0",
+        eligibility: []
+      });
+    }
+    return tempReturnData;
     try {
       // Log the start of the eligibility check
       logger.info(`Checking eligibility for ${addresses.length} addresses`);
