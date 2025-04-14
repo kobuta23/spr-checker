@@ -686,7 +686,7 @@ const FlowrateBreakdown = ({
                           </div>
                         </td>
                         
-                        {dataList.map((d, dIndex) => {
+                        {dataList.map((_, dIndex) => {
                           // Only show activity details for the matching address
                           if (dIndex !== addressIndex) {
                             return (
