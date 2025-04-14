@@ -3,6 +3,7 @@ import config from '../../config';
 import logger from '../../utils/logger';
 import { StackApiResponse, StackAllocation } from '../../models/types';
 import { addRecipient, getStoredRecipients, latestRecipients } from '../../utils/UBARecipients';
+
 const COMMUNITY_ACTIVATION_ID = 7370;
 const { THRESHOLD_TIME_PERIOD } = config;
 
