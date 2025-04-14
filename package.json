@@ -14,7 +14,8 @@
     "postinstall": "npm run build",
     "npm-build": "npm install && cd client && npm install && npm run build",
     "install-pnpm": "npm install -g pnpm",
-    "ssh-deploy": "GIT_URL=https://github.com/kobuta23/spr-checker ./sf-deploy-https.sh && GIT_URL=https://github.com/kobuta23/spr-checker ./sf-deploy.sh"
+    "ssh-deploy": "GIT_URL=https://github.com/kobuta23/spr-checker ./sf-deploy-https.sh && GIT_URL=https://github.com/kobuta23/spr-checker ./sf-deploy.sh",
+    "typecheck": "tsc --noEmit"
   },
   "keywords": [
     "superfluid",
@@ -36,10 +37,12 @@
     "axios": "^1.8.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
+    "expiry-map": "^2.0.0",
     "express": "^4.21.2",
     "helmet": "^8.0.0",
     "jest": "^29.7.0",
     "nodemon": "^3.1.9",
+    "p-memoize": "^7.1.1",
     "supertest": "^7.0.0",
     "ts-jest": "^29.2.6",
     "ts-node": "^10.9.2",
@@ -50,5 +53,8 @@
   },
   "devDependencies": {
     "@types/uuid": "^10.0.0"
+  },
+  "engines": {
+    "node": ">=22.0.0"
   }
 }
