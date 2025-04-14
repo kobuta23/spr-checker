@@ -111,12 +111,11 @@ class StackApiService {
 
       if (response.status >= 200 && response.status < 300) {
         logger.info(`Successfully assigned ${points} points to ${address}`);
-        logger.slackNotify(`Successfully assigned ${points} points to ${address}`, 'info');
         // add recipient to UBARecipients list
         addRecipient({ address });
         const recipients = getStoredRecipients();
         const lastHour = latestRecipients(THRESHOLD_TIME_PERIOD).length;
-        logger.slackNotify(`Added ${address} to UBARecipients list. ${recipients.length} recipients in list. ${lastHour} in the last hour `);
+        logger.slackNotify(`Gave points to ${address} and added ${address} to recipients list. ${recipients.length} recipients in list. ${lastHour} in the last hour `);
         return true;
       } else {
         logger.error(`Failed to assign points, received status ${response.status}`);

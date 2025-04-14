@@ -16,19 +16,6 @@ class EligibilityService {
    * @returns Promise with eligibility data for each address
    */
   async checkEligibility(addresses: string[]): Promise<AddressEligibility[]> {
-    // momentarily just return true
-    const tempReturnData: AddressEligibility[] = [];
-    for(const address of addresses) {
-      tempReturnData.push({
-        address,
-        hasAllocations: false,
-        claimNeeded: false,
-        totalFlowRate: "0",
-        eligibility: []
-      });
-      logger.slackNotify(`Eligibility check ended early for ${address}. Returned 0`);
-    }
-    return tempReturnData;
     try {
       return await checkEligibilityMemoized(addresses);
     } catch (error) {
@@ -145,6 +132,9 @@ const _checkEligibility = async (addresses: string[]): Promise<AddressEligibilit
         hasAllocations = true;
       }
     });
+    
+    logger.slackNotify(`Refreshed data for ${address} from stack.so`, 'info');
+    
     return {
       address,
       hasAllocations,

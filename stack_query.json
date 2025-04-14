@@ -1,0 +1,24 @@
+[
+    {
+        "pointSystemId": 7370,
+        "query": {
+            "limit": 25,
+            "offset": 0,
+            "where": {
+                "eventType": "$undefined",
+                "eventTimestamp": "$undefined",
+                "associatedAccount": "0x09A900eB2ff6e9AcA12d4d1a396DdC9bE0307661"
+            },
+            "orderBy": [
+                {
+                    "eventTimestamp": "desc"
+                },
+                {
+                    "associatedAccount": "asc"
+                }
+            ]
+        },
+        "enabled": true,
+        "refetchInterval": 30000
+    }
+]
