@@ -33,3 +33,5 @@ Thumbs.db
 .env.prod
 
 /data/*
+
+/tests/*.json
