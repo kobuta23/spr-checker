@@ -547,11 +547,7 @@ const FlowrateBreakdown = ({
                   const unclaimedFlowrateStr = unclaimedFlowrateBigInt.toString();
                   
                   const unclaimedPoints = getUnclaimedPoints(item.points, item.claimedAmount);
-                  
-                  // Check if this address has expanded activities
-                  const activityKey = `${pointSystemId}-${data.address}`;
-                  const hasExpandedActivities = !!expandedActivities[activityKey];
-                  
+                                    
                   return (
                     <React.Fragment key={`data-${addressIndex}-${pointSystemId}`}>
                       <td className="px-3 py-4 text-sm text-right font-mono border-l w-24 relative">
@@ -598,7 +594,7 @@ const FlowrateBreakdown = ({
                 const hasAnyActivityData = dataList.some(data => {
                   const activityKey = `${pointSystemId}-${data.address}`;
                   const activityData = expandedActivities[activityKey];
-                  return activityData?.data?.aggregates?.length > 0;
+                  return !!activityData?.data?.aggregates && activityData.data.aggregates.length > 0;
                 });
 
                 // Check if all expanded addresses are loaded (not in loading state)
