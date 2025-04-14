@@ -27,6 +27,7 @@
   "license": "ISC",
   "dependencies": {
     "@slack/webhook": "^7.0.5",
+    "@stackso/js-core": "^0.5.11",
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",
     "@types/jest": "^29.5.14",

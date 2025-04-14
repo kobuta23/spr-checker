@@ -1,11 +1,12 @@
 import axios from 'axios';
 import config from '../../config';
+import { getStackApiKey } from '../../config';
 import logger from '../../utils/logger';
 import { StackApiResponse, StackAllocation } from '../../models/types';
 import { addRecipient, getStoredRecipients, latestRecipients } from '../../utils/UBARecipients';
 const COMMUNITY_ACTIVATION_ID = 7370;
 const { THRESHOLD_TIME_PERIOD } = config;
-
+import { formatEvents, FormattedStackEvents } from './formatUtils';
 class StackApiService {
   private baseUrl: string;
   private apiKey: string;
@@ -13,8 +14,15 @@ class StackApiService {
 
   constructor() {
     this.baseUrl = config.stackApiBaseUrl;
-    this.apiKey = process.env.STACK_API_KEY || '';
-    this.writeApiKey = process.env.STACK_WRITE_API_KEY || '';
+    if(!process.env.STACK_API_KEY) {
+      throw new Error('STACK_API_KEY is not set');
+    }
+    this.apiKey = process.env.STACK_API_KEY;
+    if(!process.env.STACK_WRITE_API_KEY) {
+      throw new Error('STACK_WRITE_API_KEY is not set');
+    }
+    this.writeApiKey = process.env.STACK_WRITE_API_KEY;
+
   }
 
   /**
@@ -79,12 +87,6 @@ class StackApiService {
    */
   async assignPoints(address: string, points: number): Promise<boolean> {
     try {
-      // Only proceed if we have a write API key
-      if (!this.writeApiKey) {
-        logger.error('Cannot assign points: STACK_WRITE_API_KEY not set');
-        return false;
-      }
-
       const url = `https://track.stack.so/event`;
       // ${this.baseUrl}/point-system/${pointSystemId}/assign`;
       
@@ -124,6 +126,84 @@ class StackApiService {
       logger.error(`Failed to assign ${points} points to ${address}`, { error });
       logger.slackNotify(`Failed to assign ${points} points to ${address}`, 'error');
       return false;
+    }
+  }
+
+  /**
+   * Get stack activity for all point systems for a specific address
+   * @param address Ethereum address
+   * @returns Promise with stack activity data
+   */
+  async getStackActivityForAllPointSystems(address: string) {
+    const activity = await Promise.all(config.pointSystems.map((pointSystem) => this.getStackActivity(address, pointSystem.id)));
+    return activity;
+  }
+
+  /**
+   * Get stack activity for a specific address and point system
+   * @param address Ethereum address
+   * @param pointSystemId The ID of the point system
+   * @returns Promise with stack activity data
+   */
+  async getStackActivity(address: string, pointSystemId: number): Promise<FormattedStackEvents> {
+    try {
+      let allResults: any[] = [];
+      let hasMore = true;
+      let offset = 0;
+      const limit = 100;
+
+      while (hasMore) {
+        const query = {
+          limit,
+          offset,
+          where: {
+            associatedAccount: address
+          },
+          orderBy: [
+            { eventTimestamp: "desc" },
+            { associatedAccount: "asc" }
+          ]
+        };
+
+        const url = new URL(`${this.baseUrl}/point-system/${pointSystemId}/events`);
+        url.search = new URLSearchParams({
+          query: JSON.stringify(query)
+        }).toString();
+
+        const response = await axios.get(url.toString(), {
+          headers: {
+            'x-api-key': getStackApiKey(pointSystemId) || this.writeApiKey
+          }
+        });
+        console.log(url.toString());
+        console.log(this.apiKey);
+
+        const results = response.data;
+        allResults = [...allResults, ...results];
+
+        // Check if we got less results than limit, meaning no more pages
+        if (results.length < limit) {
+          hasMore = false;
+        } else {
+          offset += limit;
+        }
+      }
+
+      return formatEvents(allResults);
+    } catch (error) {
+      logger.error(`Error getting stack activity for ${address} in point system ${pointSystemId}`, { error });
+      console.log(error);
+      return {
+        identity: {
+          address: '',
+          ensName: null,
+          farcasterUsername: null,
+          lensHandle: null,
+          farcasterPfpUrl: null
+        },
+        events: [],
+        aggregates: []
+      };
     }
   }
 }

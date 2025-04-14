@@ -9,6 +9,7 @@ import logger from './utils/logger';
 import path from 'path';
 import * as fs from 'fs';
 import axios from 'axios';
+import stackApiService from './services/stack/stackApiService';
 import imageProxyRouter from './routes/imageProxy';
 import { getRecipients, getHighLevelStats, getStoredRecipients } from './utils/UBARecipients';
 require('dotenv').config();
@@ -61,6 +62,23 @@ app.get('/superfluid/resolve/:address', async (req, res) => {
   } catch (error) {
     console.error('Error proxying to Superfluid API:', error);
     res.status(500).json({ error: 'Failed to fetch data from Superfluid API' });
+  }
+});
+
+
+// document it 
+// /stack-activity?address=0x38982E4E9908b2fAA98992D09E8CD31CAB6C6B25
+// /stack-activity?address=0x38982E4E9908b2fAA98992D09E8CD31CAB6C6B25&point-system-id=7370
+
+app.get('/stack-activity', async (req, res) => {
+  const address = req.query.address as string;
+  const pointSystemId = req.query['point-system-id'] ? Number(req.query['point-system-id']) : undefined;
+  if (!pointSystemId) {
+    const stackActivity = await stackApiService.getStackActivityForAllPointSystems(address);
+    res.json(stackActivity);
+  } else {
+    const stackActivity = await stackApiService.getStackActivity(address, pointSystemId);
+    res.json(stackActivity);
   }
 });
 
