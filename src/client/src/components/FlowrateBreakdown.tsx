@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useCallback, useRef, useContext } from 'react';
+import React, { useState } from 'react';
 import { AddressEligibility, PointSystemEligibility } from '../types';
 import UserProfileDisplay, { UserProfile } from '../components/UserProfileDisplay';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
@@ -73,7 +73,7 @@ const getAllPointSystems = (dataList: AddressEligibility[]): Record<number, stri
 };
 
 // Add this new component for the pie chart
-const FlowratePieChart = ({ 
+export const FlowratePieChart = ({ 
   data, 
   pointSystemColors, 
   pointSystemNames 
@@ -151,83 +151,16 @@ interface ExpandedActivities {
   }
 }
 
-// Create a context to store loading state outside component render cycles
-const LoadingContext = React.createContext<{
-  queueRequest: (fn: () => Promise<void>) => void;
-}>({
-  queueRequest: () => Promise.resolve(),
-});
-
-// Simplified provider component to wrap around the main component
-const LoadingProvider: React.FC<{children: React.ReactNode}> = ({ children }) => {
-  const requestQueueRef = useRef<Array<() => Promise<void>>>([]);
-  const isProcessingQueueRef = useRef<boolean>(false);
-  
-  const processQueue = useCallback(async () => {
-    if (isProcessingQueueRef.current) return;
-    
-    isProcessingQueueRef.current = true;
-    
-    try {
-      while (requestQueueRef.current.length > 0) {
-        const request = requestQueueRef.current.shift();
-        if (request) {
-          try {
-            await request();
-          } catch (error) {
-            console.error("Error processing queued request:", error);
-          }
-          
-          // Add a small delay between requests
-          await new Promise(resolve => setTimeout(resolve, 200));
-        }
-      }
-    } finally {
-      isProcessingQueueRef.current = false;
-    }
-  }, []);
-  
-  const queueRequest = useCallback((fn: () => Promise<void>) => {
-    requestQueueRef.current.push(fn);
-    processQueue();
-  }, [processQueue]);
-  
-  return (
-    <LoadingContext.Provider value={{ queueRequest }}>
-      {children}
-    </LoadingContext.Provider>
-  );
-};
-
 const FlowrateBreakdown = ({ 
   dataList, 
   userProfiles, 
   onAddressCopy, 
   onRemoveUser,
-  onAddAddress,
-  isLoading,
   timeUnit: externalTimeUnit,
-  onTimeUnitChange
 }: FlowrateBreakdownProps) => {
-  // Context and refs
-  const { queueRequest } = useContext(LoadingContext);
-  const abortControllersRef = useRef<Map<string, AbortController>>(new Map());
-  const notificationRef = useRef<HTMLDivElement>(null);
-  
   // State
-  const [internalTimeUnit, setInternalTimeUnit] = useState<TimeUnit>('month');
   const [expandedActivities, setExpandedActivities] = useState<ExpandedActivities>({});
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
-  const [showNotification, setShowNotification] = useState<string | null>(null);
-  
-  // Auto-cleanup on unmount
-  useEffect(() => {
-    return () => {
-      abortControllersRef.current.forEach((controller) => {
-        try { controller.abort(); } catch (err) { /* ignore */ }
-      });
-    };
-  }, []);
   
   // Early return if no data
   if (!dataList.length) return null;
@@ -265,20 +198,12 @@ const FlowrateBreakdown = ({
     };
   });
   
-  // Essential activity loading function - simplified and isolated
-  const loadActivityData = (address: string, pointSystemId: number, forceCollapse = false) => {
+  // Simplified activity loading function
+  const loadActivityData = async (address: string, pointSystemId: number, forceCollapse = false) => {
     const activityKey = `${pointSystemId}-${address}`;
     
     // Handle collapse case
     if ((expandedActivities[activityKey]?.data && !forceCollapse) || forceCollapse) {
-      // Cancel any in-flight request
-      if (abortControllersRef.current.has(activityKey)) {
-        try {
-          abortControllersRef.current.get(activityKey)?.abort();
-          abortControllersRef.current.delete(activityKey);
-        } catch (err) { /* ignore */ }
-      }
-      
       // Update state in one go
       setExpandedActivities(prev => {
         const newState = { ...prev };
@@ -302,44 +227,32 @@ const FlowrateBreakdown = ({
       }
     }));
     
-    // Add to queue
-    queueRequest(async () => {
-      const controller = new AbortController();
-      abortControllersRef.current.set(activityKey, controller);
+    try {
+      const response = await axios.get(`/stack-activity?address=${address}&point-system-id=${pointSystemId}`);
       
-      try {
-        const response = await axios.get(`/stack-activity?address=${address}&point-system-id=${pointSystemId}`, {
-          signal: controller.signal
-        });
-        
-        setExpandedActivities(prev => ({
-          ...prev,
-          [activityKey]: {
-            isLoading: false,
-            error: null,
-            data: response.data
-          }
-        }));
-      } catch (error) {
-        if (axios.isCancel(error)) return;
-        
-        let errorMessage = 'Failed to load activity data';
-        if (axios.isAxiosError(error) && error.response) {
-          errorMessage = error.response.data.message || errorMessage;
+      setExpandedActivities(prev => ({
+        ...prev,
+        [activityKey]: {
+          isLoading: false,
+          error: null,
+          data: response.data
         }
-        
-        setExpandedActivities(prev => ({
-          ...prev,
-          [activityKey]: {
-            isLoading: false,
-            error: errorMessage,
-            data: null
-          }
-        }));
-      } finally {
-        abortControllersRef.current.delete(activityKey);
+      }));
+    } catch (error) {
+      let errorMessage = 'Failed to load activity data';
+      if (axios.isAxiosError(error) && error.response) {
+        errorMessage = error.response.data.message || errorMessage;
       }
-    });
+      
+      setExpandedActivities(prev => ({
+        ...prev,
+        [activityKey]: {
+          isLoading: false,
+          error: errorMessage,
+          data: null
+        }
+      }));
+    }
   };
   
   // Programmatically load/unload activities for all addresses in a program
@@ -356,7 +269,7 @@ const FlowrateBreakdown = ({
     } else {
       // Expand all sequentially with delay
       for (let i = 0; i < dataList.length; i++) {
-        loadActivityData(dataList[i].address, pointSystemId);
+        await loadActivityData(dataList[i].address, pointSystemId);
         if (i < dataList.length - 1) {
           await new Promise(resolve => setTimeout(resolve, 300));
         }
@@ -386,23 +299,6 @@ const FlowrateBreakdown = ({
     
     // Simply toggle selection
     setSelectedRowId(prevId => prevId === rowId ? null : rowId);
-  };
-
-  // Handle time unit changes
-  const handleTimeUnitChange = (newTimeUnit: TimeUnit) => {
-    if (onTimeUnitChange) {
-      onTimeUnitChange(newTimeUnit);
-    } else {
-      setInternalTimeUnit(newTimeUnit);
-    }
-  };
-  
-  // Handle notifications
-  const showTemporaryNotification = (message: string) => {
-    setShowNotification(message);
-    setTimeout(() => {
-      setShowNotification(null);
-    }, 2000);
   };
   
   // Convert flowrate for display
@@ -466,21 +362,11 @@ const FlowrateBreakdown = ({
   };
 
   // Use either external or internal time unit
-  const timeUnit = externalTimeUnit !== undefined ? externalTimeUnit : internalTimeUnit;
+  const timeUnit = externalTimeUnit !== undefined ? externalTimeUnit : 'month';
 
   // Now render the UI
   return (
     <div className="relative">
-      {/* Simple notification with fade classes */}
-      {showNotification && (
-        <div 
-          ref={notificationRef}
-          className="fixed top-16 right-4 bg-green-500 text-white px-4 py-2 rounded shadow-lg z-50 opacity-100 transition-opacity duration-300"
-        >
-          {showNotification}
-        </div>
-      )}
-      
       <div className="flex justify-center items-center">
         <div className="overflow-x-auto w-fit">
           <table className="divide-y divide-gray-200 table-auto border-collapse mx-auto">
@@ -688,7 +574,7 @@ const FlowrateBreakdown = ({
                       }
 
                       // Collect loading states first
-                      const loadingStates = dataList.map((data, addressIndex) => {
+                      const loadingStates = dataList.map((data, _) => {
                         const activityKey = `${pointSystemId}-${data.address}`;
                         const activityData = expandedActivities[activityKey];
                         
@@ -843,6 +729,69 @@ const FlowrateBreakdown = ({
                   }
                 </React.Fragment>
               ))}
+              
+              {/* Totals row */}
+              <tr className="border-t-2 border-gray-300 bg-gray-50">
+                <td className="py-4 pl-4 pr-3 text-sm font-bold text-gray-900 sm:pl-6 whitespace-nowrap">
+                  <div className="flex items-center">
+                    <span>Totals</span>
+                  </div>
+                </td>
+                
+                {dataList.map((data, addressIndex) => {
+                  // Get the address flowrate data
+                  const flowrateData = addressFlowrates[addressIndex];
+                  
+                  // Prepare pie chart data
+                  const pieChartData = data.eligibility
+                    .filter(item => BigInt(item.estimatedFlowRate || '0') > BigInt(0))
+                    .map(item => ({
+                      pointSystemId: item.pointSystemId,
+                      flowrate: calculatePercentage(item.estimatedFlowRate || '0', flowrateData.totalFlowrate)
+                    }));
+                  
+                  return (
+                    <React.Fragment key={`totals-${addressIndex}`}>
+                      {/* Empty cell for points column */}
+                      <td className="px-4 py-4 text-sm text-right font-mono border-l whitespace-nowrap">
+                        &nbsp;
+                      </td>
+                      <td className="px-4 py-4 text-sm text-right whitespace-nowrap">
+                        <div className="flex items-center justify-end">
+                          {/* Show pie chart if we have data for visualization */}
+                          {pieChartData.length > 0 && (
+                            <FlowratePieChart 
+                              data={pieChartData}
+                              pointSystemColors={POINT_SYSTEM_COLORS}
+                              pointSystemNames={allPointSystems}
+                            />
+                          )}
+                          
+                          <div className="flex flex-col items-end">
+                            {/* Total claimed flowrate */}
+                            <div className="font-mono text-gray-900 font-bold relative group">
+                              {convertFlowRate(flowrateData.totalClaimedFlowrate, timeUnit)}
+                              <div className="absolute bottom-full mb-1 right-0 hidden group-hover:block bg-gray-800 text-white text-xs rounded py-1 px-2 whitespace-nowrap">
+                                SUP/{timeUnit}
+                              </div>
+                            </div>
+                            
+                            {/* Show unclaimed flowrate if any */}
+                            {BigInt(flowrateData.totalUnclaimedFlowrate) > BigInt(0) && (
+                              <div className="font-mono text-yellow-600 text-sm relative group">
+                                +{convertFlowRate(flowrateData.totalUnclaimedFlowrate, timeUnit)}
+                                <div className="absolute bottom-full mb-1 right-0 hidden group-hover:block bg-gray-800 text-white text-xs rounded py-1 px-2 whitespace-nowrap">
+                                  SUP/{timeUnit}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                    </React.Fragment>
+                  );
+                })}
+              </tr>
             </tbody>
           </table>
         </div>
@@ -851,9 +800,5 @@ const FlowrateBreakdown = ({
   );
 };
 
-// Wrap the component with the loading provider
-export default (props: FlowrateBreakdownProps) => (
-  <LoadingProvider>
-    <FlowrateBreakdown {...props} />
-  </LoadingProvider>
-);
+// Export the component directly without wrapping it in LoadingProvider
+export default FlowrateBreakdown;
