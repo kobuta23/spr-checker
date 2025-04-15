@@ -51,6 +51,8 @@ interface FlowrateBreakdownProps {
   onRemoveUser: (address: string) => void;
   onAddAddress: (address: string) => void;
   isLoading: boolean;
+  timeUnit?: TimeUnit;
+  onTimeUnitChange?: (unit: TimeUnit) => void;
 }
 
 type TimeUnit = 'day' | 'month';
@@ -203,7 +205,9 @@ const FlowrateBreakdown = ({
   onAddressCopy, 
   onRemoveUser,
   onAddAddress,
-  isLoading
+  isLoading,
+  timeUnit: externalTimeUnit,
+  onTimeUnitChange
 }: FlowrateBreakdownProps) => {
   // Context and refs
   const { queueRequest } = useContext(LoadingContext);
@@ -211,7 +215,7 @@ const FlowrateBreakdown = ({
   const notificationRef = useRef<HTMLDivElement>(null);
   
   // State
-  const [timeUnit, setTimeUnit] = useState<TimeUnit>('month');
+  const [internalTimeUnit, setInternalTimeUnit] = useState<TimeUnit>('month');
   const [expandedActivities, setExpandedActivities] = useState<ExpandedActivities>({});
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
   const [showNotification, setShowNotification] = useState<string | null>(null);
@@ -386,7 +390,11 @@ const FlowrateBreakdown = ({
 
   // Handle time unit changes
   const handleTimeUnitChange = (newTimeUnit: TimeUnit) => {
-    setTimeUnit(newTimeUnit);
+    if (onTimeUnitChange) {
+      onTimeUnitChange(newTimeUnit);
+    } else {
+      setInternalTimeUnit(newTimeUnit);
+    }
   };
   
   // Handle notifications
@@ -457,6 +465,9 @@ const FlowrateBreakdown = ({
     return activityFlowrateBigInt.toString();
   };
 
+  // Use either external or internal time unit
+  const timeUnit = externalTimeUnit !== undefined ? externalTimeUnit : internalTimeUnit;
+
   // Now render the UI
   return (
     <div className="relative">
@@ -470,32 +481,6 @@ const FlowrateBreakdown = ({
         </div>
       )}
       
-      {/* Move time unit toggle outside the table, above it */}
-      <div className="flex justify-end mb-4">
-        <div className="inline-flex rounded-md shadow-sm">
-          <button
-            onClick={() => handleTimeUnitChange('day')}
-            className={`px-3 py-1.5 text-xs font-medium rounded-l-md border ${
-              timeUnit === 'day'
-                ? 'bg-gray-100 text-gray-700 border-gray-300'
-                : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
-            }`}
-          >
-            per day
-          </button>
-          <button
-            onClick={() => handleTimeUnitChange('month')}
-            className={`px-3 py-1.5 text-xs font-medium rounded-r-md border-t border-r border-b ${
-              timeUnit === 'month'
-                ? 'bg-gray-100 text-gray-700 border-gray-300'
-                : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
-            }`}
-          >
-            per month
-          </button>
-        </div>
-      </div>
-
       <div className="flex justify-center items-center">
         <div className="overflow-x-auto w-fit">
           <table className="divide-y divide-gray-200 table-auto border-collapse mx-auto">
@@ -568,7 +553,7 @@ const FlowrateBreakdown = ({
                     } cursor-pointer transition-colors duration-150`}
                     onClick={() => handleRowClick(`system-${pointSystemId}`)}
                   >
-                    <td className="py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6 whitespace-nowrap">
+                    <td className="py-3 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6 whitespace-nowrap">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center overflow-hidden">
                           <div 
@@ -609,8 +594,8 @@ const FlowrateBreakdown = ({
                         // No data for this point system for this address
                         return (
                           <React.Fragment key={`empty-${addressIndex}-${pointSystemId}`}>
-                            <td className="px-4 py-4 text-sm text-gray-500 text-right border-l whitespace-nowrap">-</td>
-                            <td className="px-4 py-4 text-sm text-gray-500 text-right whitespace-nowrap">-</td>
+                            <td className="px-4 py-3 text-sm text-gray-500 text-right border-l whitespace-nowrap">-</td>
+                            <td className="px-4 py-3 text-sm text-gray-500 text-right whitespace-nowrap">-</td>
                           </React.Fragment>
                         );
                       }
@@ -633,7 +618,7 @@ const FlowrateBreakdown = ({
                       
                       return (
                         <React.Fragment key={`data-${addressIndex}-${pointSystemId}`}>
-                          <td className="px-4 py-4 text-sm text-right font-mono border-l whitespace-nowrap">
+                          <td className="px-4 py-3 text-sm text-right font-mono border-l whitespace-nowrap">
                             <div className="flex flex-col items-end">
                               <div>
                                 <span className="text-gray-900">{item.claimedAmount.toLocaleString()}</span>
@@ -645,7 +630,7 @@ const FlowrateBreakdown = ({
                               )}
                             </div>
                           </td>
-                          <td className="px-4 py-4 text-sm text-right whitespace-nowrap">
+                          <td className="px-4 py-3 text-sm text-right whitespace-nowrap">
                             <div className="flex flex-col items-end">
                               {/* Always show claimed flowrate, even if it's zero */}
                               <div className="font-mono text-gray-900 relative group">

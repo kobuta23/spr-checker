@@ -6,6 +6,9 @@ import ErrorMessage from './ErrorMessage';
 import LoadingSpinner from './LoadingSpinner';
 import { AddressEligibility } from '../types';
 
+// Define TimeUnit type for consistency
+type TimeUnit = 'day' | 'month';
+
 interface AddressManagerProps {
   initialAddresses?: string[];
   onAddressesChange?: (addresses: string[]) => void;
@@ -20,6 +23,7 @@ const AddressManager: React.FC<AddressManagerProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const prevAddressesRef = useRef<string[]>([]);
+  const [timeUnit, setTimeUnit] = useState<TimeUnit>('month'); // Add time unit state
 
   // Load initial addresses - ONE TIME ONLY
   useEffect(() => {
@@ -124,11 +128,43 @@ const AddressManager: React.FC<AddressManagerProps> = ({
 
   return (
     <div>
-      <div className="flex justify-center">
-        <AddAddressForm 
-          onSubmit={handleAddressSubmit} 
-          isLoading={addingAddress} 
-        />
+      <div className="flex items-center mb-4">
+        {/* Spacer div to push content to center */}
+        <div className="flex-1 min-w-[100px]"></div>
+        
+        {/* Centered address form */}
+        <div className="flex-grow max-w-md">
+          <AddAddressForm 
+            onSubmit={handleAddressSubmit} 
+            isLoading={addingAddress} 
+          />
+        </div>
+        
+        {/* Time unit toggle and spacer to balance layout */}
+        <div className="flex-1 min-w-[100px] flex justify-end">
+          <div className="inline-flex rounded-md shadow-sm">
+            <button
+              onClick={() => setTimeUnit('day')}
+              className={`px-3 py-1.5 text-xs font-medium rounded-l-md border ${
+                timeUnit === 'day'
+                  ? 'bg-gray-100 text-gray-700 border-gray-300'
+                  : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
+              }`}
+            >
+              per day
+            </button>
+            <button
+              onClick={() => setTimeUnit('month')}
+              className={`px-3 py-1.5 text-xs font-medium rounded-r-md border-t border-r border-b ${
+                timeUnit === 'month'
+                  ? 'bg-gray-100 text-gray-700 border-gray-300'
+                  : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
+              }`}
+            >
+              per month
+            </button>
+          </div>
+        </div>
       </div>
 
       <div className="bg-white shadow rounded-lg overflow-hidden">
@@ -146,6 +182,8 @@ const AddressManager: React.FC<AddressManagerProps> = ({
                 onRemoveUser={removeAddress}
                 onAddAddress={handleAddressSubmit}
                 isLoading={addingAddress}
+                timeUnit={timeUnit} // Pass time unit to component
+                onTimeUnitChange={setTimeUnit} // Pass setter to component
               />
             </div>
           )}
