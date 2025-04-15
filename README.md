@@ -97,6 +97,55 @@ GET /api/eligibility?addresses=0x1234567890123456789012345678901234567890,0x2345
 }
 ```
 
+### GET /stack-activity
+
+Retrieve activity data for a specific address across all point systems or for a specific point system.
+
+**Query Parameters:**
+- `address`: Ethereum address to check (required)
+- `point-system-id`: ID of a specific point system (optional)
+
+**Example Requests:**
+```
+GET /stack-activity?address=0x1234567890123456789012345678901234567890
+GET /stack-activity?address=0x1234567890123456789012345678901234567890&point-system-id=7370
+```
+
+**Response Format (with point-system-id):**
+```json
+{
+  "identity": {
+    "address": "0x1234567890123456789012345678901234567890",
+    "ensName": "username.eth",
+    "farcasterUsername": "username",
+    "lensHandle": "username.lens",
+    "farcasterPfpUrl": "https://example.com/pfp.jpg"
+  },
+  "events": [
+    {
+      "eventType": "contribution",
+      "timestamp": "2023-05-17T13:27:15.768Z",
+      "points": 100
+    }
+    // Additional events...
+  ],
+  "aggregates": [
+    {
+      "eventType": "contribution",
+      "totalPoints": 250,
+      "count": 5,
+      "firstTimestamp": "2023-03-01T12:00:00.000Z",
+      "lastTimestamp": "2023-05-17T13:27:15.768Z"
+    }
+    // Additional aggregates...
+  ]
+}
+```
+
+**Notes:**
+- Results are cached for 12 hours per address and point system combination
+- When requesting all point systems, the response will be an array of the above format
+
 ### GET /health
 
 Health check endpoint to verify the service is running.
@@ -188,6 +237,78 @@ docker-compose up -d
 docker-compose down
 ```
 
+## Caching and Memoization
+
+The API implements several caching mechanisms to improve performance and reduce load on external services:
+
+### Function Memoization
+
+The application uses the `p-memoize` library to cache expensive function results:
+
+- **Eligibility Service**: The `checkEligibility` function is memoized with a 12-hour (half-day) expiration time.
+  - Results are cached based on the sorted, lowercase addresses being queried
+  - This significantly reduces load on the Stack API and blockchain RPC endpoints
+  - The cache invalidates automatically after 12 hours
+
+```typescript
+const checkEligibilityMemoized = pMemoize(_checkEligibility, {
+  cache: halfDayCache,
+  cacheKey([addresses]) {
+    return "check-eligibility-" + addresses.map(x => x.toLowerCase()).sort().join("-");
+  }
+});
+```
+
+- **Stack Activity Service**: Both single point system and all point systems activity queries are memoized with the same 12-hour expiration.
+  - Caching is applied per address and point system combination
+  - Reduces repeated API calls when users view the same activity data multiple times
+  - Especially valuable for the dashboard view showing multiple addresses
+
+```typescript
+// Single point system caching
+const getStackActivityMemoized = pMemoize(_getStackActivity, {
+  cache: halfDayCache,
+  cacheKey([address, pointSystemId]) {
+    return `stack-activity-${pointSystemId}-${address.toLowerCase()}`;
+  }
+});
+
+// All point systems caching
+const getStackActivityForAllPointSystemsMemoized = pMemoize(_getStackActivityForAllPointSystems, {
+  cache: halfDayCache,
+  cacheKey([address]) {
+    return "stack-activity-all-" + address.toLowerCase();
+  }
+});
+```
+
+### Recipient Data Caching
+
+The `UBARecipients` module implements file-based caching for recipient data:
+
+- **Storage**: Recipient data is stored in a JSON file at `data/UniversalPointRecipients.json`
+- **Cache Duration**: By default, recipient data is considered fresh for 20 minutes
+- **Selective Updates**: When checking recipients, only those without a locker address or with stale data are processed
+- **Cache Control**: The `/recipients` endpoint accepts a `cache` query parameter to control cache invalidation duration
+
+```typescript
+// Default cache duration is 20 minutes (1000ms * 60 * 20)
+const cacheInvalidationDuration = cacheInvalidation || 1000 * 60 * 20;
+```
+
+### Performance Benefits
+
+- **Reduced API Calls**: Memoization reduces calls to external APIs like Stack API
+  - Eligibility checks are cached for 12 hours
+  - Stack activity data is cached for 12 hours per address and point system
+- **Lower Blockchain RPC Usage**: Caching blockchain data reduces RPC calls
+- **Faster Response Times**: Cached responses are served immediately without waiting for external services
+  - Activity data for popular addresses benefits significantly
+  - Dashboard views with multiple point systems load much faster on subsequent views
+- **Improved Scalability**: The system can handle more concurrent users with the same resources
+  - Cached stack activity data greatly reduces load during high-traffic periods
+  - Frontend doesn't need to implement its own caching logic
+
 ## Project Structure
 
 ```
@@ -203,8 +324,6 @@ docker-compose down
 │   ├── utils/            # Helper functions
 │   └── app.ts            # Express application setup
 ├── tests/                # Test files
-├── Dockerfile            # Docker configuration
-└── docker-compose.yml    # Docker Compose configuration
 ```
 
 ## Point Systems

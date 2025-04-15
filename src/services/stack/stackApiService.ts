@@ -4,6 +4,8 @@ import { getStackApiKey } from '../../config';
 import logger from '../../utils/logger';
 import { StackApiResponse, StackAllocation } from '../../models/types';
 import { addRecipient, getStoredRecipients, latestRecipients } from '../../utils/UBARecipients';
+import pMemoize from 'p-memoize';
+import { halfDayCache } from '../../config/cache';
 
 const COMMUNITY_ACTIVATION_ID = 7370;
 const { THRESHOLD_TIME_PERIOD } = config;
@@ -18,7 +20,7 @@ class StackApiService {
     if(!process.env.STACK_API_KEY) {
       throw new Error('STACK_API_KEY is not set');
     }
-    this.apiKey = process.env.STACK_API_KEY;
+    this.apiKey = process.env.STACK_API_KEY || '';
     if(!process.env.STACK_WRITE_API_KEY) {
       throw new Error('STACK_WRITE_API_KEY is not set');
     }
@@ -135,8 +137,7 @@ class StackApiService {
    * @returns Promise with stack activity data
    */
   async getStackActivityForAllPointSystems(address: string) {
-    const activity = await Promise.all(config.pointSystems.map((pointSystem) => this.getStackActivity(address, pointSystem.id)));
-    return activity;
+    return await getStackActivityForAllPointSystemsMemoized(address);
   }
 
   /**
@@ -146,71 +147,110 @@ class StackApiService {
    * @returns Promise with stack activity data
    */
   async getStackActivity(address: string, pointSystemId: number): Promise<FormattedStackEvents> {
-    try {
-      let allResults: any[] = [];
-      let hasMore = true;
-      let offset = 0;
-      const limit = 100;
-
-      while (hasMore) {
-        const query = {
-          limit,
-          offset,
-          where: {
-            associatedAccount: address
-          },
-          orderBy: [
-            { eventTimestamp: "desc" },
-            { associatedAccount: "asc" }
-          ]
-        };
-
-        const url = new URL(`${this.baseUrl}/point-system/${pointSystemId}/events`);
-        url.search = new URLSearchParams({
-          query: JSON.stringify(query)
-        }).toString();
-
-        const key = getStackApiKey(pointSystemId) || this.apiKey;
-        console.log("api key being used for point system: ", pointSystemId," : ", key);
-
-        const response = await axios.get(url.toString(), {
-          headers: {
-            'x-api-key': key
-          }
-        });
-        console.log(url.toString());
-        console.log(this.apiKey);
-
-        const results = response.data;
-        console.log("results: ", results);
-        console.log("results.length: ", results.length);
-        allResults = [...allResults, ...results];
-
-        // Check if we got less results than limit, meaning no more pages
-        if (results.length < limit) {
-          hasMore = false;
-        } else {
-          offset += limit;
-        }
-      }
-
-      return formatEvents(allResults, pointSystemId);
-    } catch (error) {
-      logger.error(`Error getting stack activity for ${address} in point system ${pointSystemId}`, { error });
-      console.log(error);
-      return {
-        identity: {
-          address: '',
-          ensName: null,
-          farcasterUsername: null,
-          lensHandle: null,
-          farcasterPfpUrl: null
-        },
-        events: [],
-        aggregates: []
-      };
-    }
+    return await getStackActivityMemoized(address, pointSystemId);
   }
 }
+
+/**
+ * Private implementation of getStackActivityForAllPointSystems
+ * This is separated to allow for memoization
+ */
+const _getStackActivityForAllPointSystems = async (address: string) => {
+  return await Promise.all(
+    config.pointSystems.map((pointSystem) => _getStackActivity(address, pointSystem.id))
+  );
+};
+
+/**
+ * Private implementation of getStackActivity
+ * This is separated to allow for memoization
+ */
+const _getStackActivity = async (address: string, pointSystemId: number): Promise<FormattedStackEvents> => {
+  try {
+    let allResults: any[] = [];
+    let hasMore = true;
+    let offset = 0;
+    const limit = 100;
+
+    while (hasMore) {
+      const query = {
+        limit,
+        offset,
+        where: {
+          associatedAccount: address
+        },
+        orderBy: [
+          { eventTimestamp: "desc" },
+          { associatedAccount: "asc" }
+        ]
+      };
+
+      const url = new URL(`${config.stackApiBaseUrl}/point-system/${pointSystemId}/events`);
+      url.search = new URLSearchParams({
+        query: JSON.stringify(query)
+      }).toString();
+
+      const key = getStackApiKey(pointSystemId) || '';
+      console.log("api key being used for point system: ", pointSystemId," : ", key);
+
+      const response = await axios.get(url.toString(), {
+        headers: {
+          'x-api-key': key
+        }
+      });
+      console.log(url.toString());
+
+      const results = response.data;
+      console.log("results: ", results);
+      console.log("results.length: ", results.length);
+      allResults = [...allResults, ...results];
+
+      // Check if we got less results than limit, meaning no more pages
+      if (results.length < limit) {
+        hasMore = false;
+      } else {
+        offset += limit;
+      }
+    }
+
+    return formatEvents(allResults, pointSystemId);
+  } catch (error) {
+    logger.error(`Error getting stack activity for ${address} in point system ${pointSystemId}`, { error });
+    console.log(error);
+    return {
+      identity: {
+        address: '',
+        ensName: null,
+        farcasterUsername: null,
+        lensHandle: null,
+        farcasterPfpUrl: null
+      },
+      events: [],
+      aggregates: []
+    };
+  }
+};
+
+/**
+ * Memoized version of getStackActivityForAllPointSystems
+ * Caches results for 12 hours to reduce API calls
+ */
+const getStackActivityForAllPointSystemsMemoized = pMemoize(_getStackActivityForAllPointSystems, {
+  cache: halfDayCache,
+  cacheKey([address]) {
+    return "stack-activity-all-" + address.toLowerCase();
+  }
+});
+
+/**
+ * Memoized version of getStackActivity
+ * Caches results for 12 hours to reduce API calls
+ */
+const getStackActivityMemoized = pMemoize(_getStackActivity, {
+  cache: halfDayCache,
+  cacheKey([address, pointSystemId]) {
+    return `stack-activity-${pointSystemId}-${address.toLowerCase()}`;
+  }
+});
 
 export default new StackApiService(); 

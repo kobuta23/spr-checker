@@ -90,3 +90,19 @@ The frontend integrates with the Superfluid Eligibility API by sending GET reque
 ```
 
 This endpoint returns data about the eligibility and flowrate of the provided address. 
+
+## URL Schema
+
+The application uses URL parameters to maintain state, enabling easy sharing and bookmarking of specific views. The URL schema follows this pattern:
+
+```
+?addresses=0x123,0x456&timeUnit=day&highlight=community-activations&expanded=7370
+```
+
+Parameters explained:
+- `addresses`: Comma-separated list of Ethereum addresses to display
+- `timeUnit`: Display flowrate per "day" (omitted when set to "month" as it's the default)
+- `highlight`: The name of the row to highlight in kebab-case. For programs, it's the program name in kebab-case (e.g., "community-activations"); for activities, it's the activity name in kebab-case plus the program ID (e.g., "followed-us-7370")
+- `expanded`: Comma-separated list of program IDs (4-digit codes) for which activities are expanded
+
+This stateful URL approach allows users to share specific views, including selected addresses and expanded program details in a concise format.

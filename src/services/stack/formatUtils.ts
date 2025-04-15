@@ -115,6 +115,7 @@ const eventTypeAliases: Record<string, string> = {
     "fractionDataPoints": "FRACTION holder",
     "planet-ix-open-stream": "PlanetIX user",
     "universal_allocation": "Universal Allocation",
+    "csv_upload_2025-02-18T13:18:02.455Z": "Ricochet Volume"
 }
 
 const farcasterAliases: Record<string, string> = {

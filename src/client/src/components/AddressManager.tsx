@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import FlowrateBreakdown from './FlowrateBreakdown';
 import AddAddressForm from './AddAddressForm';
@@ -19,19 +19,21 @@ const AddressManager: React.FC<AddressManagerProps> = ({
   const [addingAddress, setAddingAddress] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
+  const prevAddressesRef = useRef<string[]>([]);
 
   // Load initial addresses - ONE TIME ONLY
   useEffect(() => {
-    // Skip if we've already done the initial load
-    if (initialLoadComplete) return;
-
+    // Only fetch data if initialAddresses has actually changed
+    const initialAddressesStr = initialAddresses.join(',');
+    const prevAddressesStr = prevAddressesRef.current.join(',');
+    
+    if (initialAddressesStr === prevAddressesStr || initialAddresses.length === 0) {
+      return;
+    }
+    
+    prevAddressesRef.current = [...initialAddresses];
+    
     const loadAddresses = async () => {
-      if (initialAddresses.length === 0) {
-        setInitialLoadComplete(true);
-        return;
-      }
-      
       setLoading(true);
       setError(null);
       
@@ -51,22 +53,32 @@ const AddressManager: React.FC<AddressManagerProps> = ({
         }
       } finally {
         setLoading(false);
-        setInitialLoadComplete(true);
       }
     };
     
     loadAddresses();
-  }, []); // Empty dependency array - run ONCE only
+  }, [initialAddresses]); // Only reload when initialAddresses changes
 
-  // Completely isolated second effect for address changes
+  // Update parent with address changes - but only when addressDataList changes, not on every render
   useEffect(() => {
-    if (!initialLoadComplete) return;
+    if (!onAddressesChange) return;
     
     const addresses = addressDataList.map(data => data.address);
-    if (onAddressesChange) {
+    
+    // Compare with previous addresses to avoid unnecessary updates
+    const prevAddresses = prevAddressesRef.current;
+    const addressesChanged = 
+      addresses.length !== prevAddresses.length || 
+      addresses.some((addr, i) => addr.toLowerCase() !== prevAddresses[i]?.toLowerCase());
+    
+    // Only update if addresses have actually changed
+    if (addresses.length > 0 && addressesChanged) {
+      // Update our ref with the new addresses
+      prevAddressesRef.current = [...addresses];
+      // Notify parent
       onAddressesChange(addresses);
     }
-  }, [addressDataList, initialLoadComplete]);
+  }, [addressDataList, onAddressesChange]); // Adding onAddressesChange back is fine as we're properly guarding against excessive updates
 
   // Handle address submission
   const handleAddressSubmit = async (address: string) => {

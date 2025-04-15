@@ -1,45 +1,26 @@
-import * as React from 'react'
-const { useState, useEffect } = React
+import React from 'react'
 import PageHeader from './components/PageHeader'
 import AddressManager from './components/AddressManager'
+import { useSearchParams } from 'react-router-dom'
 
 function App() {
-  const [addresses, setAddresses] = useState<string[]>([])
-  const [initialLoadComplete, setInitialLoadComplete] = useState(false)
-
-  // Load addresses from URL on initial render
-  useEffect(() => {
-    const url = new URL(window.location.href);
-    
-    // Get addresses from the URL parameter
-    const addressesParam = url.searchParams.get('addresses');
-    const addressesFromUrl = addressesParam ? addressesParam.split(',') : [];
-    
-    setAddresses(addressesFromUrl);
-    setInitialLoadComplete(true);
-  }, []);
-
-  // Update URL when addresses change
-  useEffect(() => {
-    if (!initialLoadComplete) return;
-
-    const url = new URL(window.location.href);
-    
-    // Remove all query parameters
-    url.search = '';
-    
-    // Add addresses as a single comma-separated parameter
-    if (addresses.length > 0) {
-      url.searchParams.set('addresses', addresses.join(','));
-    }
-    
-    // Update URL without page reload
-    window.history.pushState({}, '', url.toString());
-  }, [addresses, initialLoadComplete]);
+  const [searchParams, setSearchParams] = useSearchParams();
+  
+  // Get initial addresses from URL if available
+  const getInitialAddresses = () => {
+    const addressParam = searchParams.get('addresses');
+    return addressParam ? addressParam.split(',') : [];
+  };
 
   // Handle address list changes from AddressManager
   const handleAddressesChange = (newAddresses: string[]) => {
-    setAddresses(newAddresses);
+    // Update URL params when addresses change
+    if (newAddresses.length > 0) {
+      searchParams.set('addresses', newAddresses.join(','));
+    } else {
+      searchParams.delete('addresses');
+    }
+    setSearchParams(searchParams);
   };
 
   return (
@@ -51,7 +32,7 @@ function App() {
         />
 
         <AddressManager 
-          initialAddresses={addresses}
+          initialAddresses={getInitialAddresses()}
           onAddressesChange={handleAddressesChange}
         />
       </div>
