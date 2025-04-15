@@ -702,125 +702,157 @@ const FlowrateBreakdown = ({
                         );
                       }
 
-                      // Map over addresses to show loading states or activities
-                      return dataList.map((data, addressIndex) => {
+                      // Collect loading states first
+                      const loadingStates = dataList.map((data, addressIndex) => {
                         const activityKey = `${pointSystemId}-${data.address}`;
                         const activityData = expandedActivities[activityKey];
                         
-                        // Skip if not expanded
-                        if (!activityData) return null;
+                        if (!activityData || !activityData.isLoading) return null;
                         
+                        const loadingRowId = `activity-loading-${activityKey}`;
+                        return (
+                          <tr 
+                            key={loadingRowId} 
+                            className={`border-t border-gray-100 ${
+                              selectedRowId === loadingRowId 
+                                ? 'bg-indigo-100 hover:bg-indigo-200' 
+                                : 'bg-blue-50/50 hover:bg-blue-100/50'
+                            } cursor-pointer transition-colors duration-150`}
+                            onClick={() => handleRowClick(loadingRowId)}
+                          >
+                            <td colSpan={1 + 2 * dataList.length} className="px-4 py-2 text-sm text-gray-500">
+                              <div className="flex items-center pl-8">
+                                <svg className="animate-spin h-4 w-4 mr-2 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                Loading activities for {data.address.substring(0, 6)}...{data.address.substring(data.address.length - 4)}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      }).filter(Boolean);
+
+                      // Collect error states
+                      const errorStates = dataList.map((data, addressIndex) => {
+                        const activityKey = `${pointSystemId}-${data.address}`;
+                        const activityData = expandedActivities[activityKey];
+                        
+                        if (!activityData || !activityData.error) return null;
+                        
+                        const errorRowId = `activity-error-${activityKey}`;
+                        return (
+                          <tr 
+                            key={errorRowId} 
+                            className={`border-t border-gray-100 ${
+                              selectedRowId === errorRowId 
+                                ? 'bg-red-200 hover:bg-red-300' 
+                                : 'bg-red-50 hover:bg-red-100'
+                            } cursor-pointer transition-colors duration-150`}
+                            onClick={() => handleRowClick(errorRowId)}
+                          >
+                            <td colSpan={1 + 2 * dataList.length} className="px-4 py-2 text-sm text-red-500">
+                              <div className="flex items-center pl-8">
+                                <svg className="h-4 w-4 mr-2 text-red-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                </svg>
+                                Error loading activities for {data.address.substring(0, 6)}...{data.address.substring(data.address.length - 4)}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      }).filter(Boolean);
+
+                      // Render loading and error states first if any
+                      if (loadingStates.length > 0 || errorStates.length > 0) {
+                        return [...loadingStates, ...errorStates];
+                      }
+
+                      // Create a map of all unique activities across all addresses
+                      const uniqueActivities = new Map<string, { 
+                        eventType: string, 
+                        addressData: Map<number, { 
+                          points: number, 
+                          flowrate: string 
+                        }> 
+                      }>();
+
+                      // Collect all activities from all users
+                      dataList.forEach((data, addressIndex) => {
+                        const activityKey = `${pointSystemId}-${data.address}`;
+                        const activityData = expandedActivities[activityKey]?.data;
                         const item = findEligibilityItem(data, pointSystemId);
-                        if (!item) return null;
                         
-                        // Show loading state
-                        if (activityData.isLoading) {
-                          const loadingRowId = `activity-loading-${activityKey}`;
-                          return (
-                            <tr 
-                              key={loadingRowId} 
-                              className={`border-t border-gray-100 ${
-                                selectedRowId === loadingRowId 
-                                  ? 'bg-indigo-100 hover:bg-indigo-200' 
-                                  : 'bg-blue-50/50 hover:bg-blue-100/50'
-                              } cursor-pointer transition-colors duration-150`}
-                              onClick={() => handleRowClick(loadingRowId)}
-                            >
-                              <td colSpan={1 + 2 * dataList.length} className="px-4 py-2 text-sm text-gray-500">
-                                <div className="flex items-center pl-8">
-                                  <svg className="animate-spin h-4 w-4 mr-2 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                  </svg>
-                                  Loading activities for {data.address.substring(0, 6)}...{data.address.substring(data.address.length - 4)}
-                                </div>
-                              </td>
-                            </tr>
+                        if (!activityData?.aggregates || !item) return;
+                        
+                        activityData.aggregates.forEach(activity => {
+                          const eventType = activity.eventType;
+                          const activityFlowrateStr = calculateActivityFlowrate(
+                            activity.totalPoints,
+                            item.points || 1,
+                            item.estimatedFlowRate
                           );
-                        }
-                        
-                        // Show error state
-                        if (activityData.error) {
-                          const errorRowId = `activity-error-${activityKey}`;
-                          return (
-                            <tr 
-                              key={errorRowId} 
-                              className={`border-t border-gray-100 ${
-                                selectedRowId === errorRowId 
-                                  ? 'bg-red-200 hover:bg-red-300' 
-                                  : 'bg-red-50 hover:bg-red-100'
-                              } cursor-pointer transition-colors duration-150`}
-                              onClick={() => handleRowClick(errorRowId)}
-                            >
-                              <td colSpan={1 + 2 * dataList.length} className="px-4 py-2 text-sm text-red-500">
-                                <div className="flex items-center pl-8">
-                                  <svg className="h-4 w-4 mr-2 text-red-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                                  </svg>
-                                  Error loading activities for {data.address.substring(0, 6)}...{data.address.substring(data.address.length - 4)}
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        }
-                        
-                        // Show activity data if we have aggregates
-                        if (activityData.data?.aggregates) {
-                          return activityData.data.aggregates.map((activity, activityIndex) => {
-                            // Calculate flowrate for this activity based on points proportion
-                            const activityFlowrateStr = calculateActivityFlowrate(
-                              activity.totalPoints,
-                              item.points || 1, // Prevent division by zero if points is 0
-                              item.estimatedFlowRate
-                            );
-                            
-                            const activityRowId = `activity-${pointSystemId}-${addressIndex}-${activityIndex}`;
-                            
-                            return (
-                              <tr 
-                                key={activityRowId}
-                                className={`${activityIndex === 0 ? 'border-t border-gray-100' : ''} ${
-                                  selectedRowId === activityRowId 
-                                    ? 'bg-indigo-100 hover:bg-indigo-200' 
-                                    : 'bg-blue-50/50 hover:bg-blue-100/50'
-                                } cursor-pointer transition-colors duration-150`}
-                                onClick={() => handleRowClick(activityRowId)}
-                              >
-                                <td className="py-2 pl-12 pr-3 text-xs text-gray-700 w-60">
-                                  <div className="flex items-center">
-                                    <div className="w-5 border-l-2 border-b-2 border-gray-300 h-3 mr-2"></div>
-                                    <span className="font-medium">{activity.eventType}</span>
-                                  </div>
-                                </td>
-                                
-                                {dataList.map((_, dIndex) => {
-                                  // Only show activity details for the matching address
-                                  if (dIndex !== addressIndex) {
-                                    return (
-                                      <React.Fragment key={`activity-empty-cell-${activityKey}-${activityIndex}-${dIndex}`}>
-                                        <td className="px-3 py-2 text-xs text-gray-400 text-right border-l w-24">-</td>
-                                        <td className="px-3 py-2 text-xs text-gray-400 text-right w-24">-</td>
-                                      </React.Fragment>
-                                    );
-                                  }
-                                  
-                                  return (
-                                    <React.Fragment key={`activity-data-${activityKey}-${activityIndex}-${dIndex}`}>
-                                      <td className="px-3 py-2 text-xs text-right font-mono border-l w-24">
-                                        {activity.totalPoints.toLocaleString()}
-                                      </td>
-                                      <td className="px-3 py-2 text-xs text-right font-mono w-24">
-                                        {convertFlowRate(activityFlowrateStr, timeUnit)}
-                                      </td>
-                                    </React.Fragment>
-                                  );
-                                })}
-                              </tr>
-                            );
+                          
+                          if (!uniqueActivities.has(eventType)) {
+                            uniqueActivities.set(eventType, {
+                              eventType,
+                              addressData: new Map()
+                            });
+                          }
+                          
+                          uniqueActivities.get(eventType)!.addressData.set(addressIndex, {
+                            points: activity.totalPoints,
+                            flowrate: activityFlowrateStr
                           });
-                        }
+                        });
+                      });
+
+                      // Now render a single row for each unique activity
+                      return Array.from(uniqueActivities.values()).map((activityData, activityIndex) => {
+                        const activityRowId = `activity-${pointSystemId}-${activityData.eventType}-${activityIndex}`;
                         
-                        return null;
+                        return (
+                          <tr 
+                            key={activityRowId}
+                            className={`${activityIndex === 0 ? 'border-t border-gray-100' : ''} ${
+                              selectedRowId === activityRowId 
+                                ? 'bg-indigo-100 hover:bg-indigo-200' 
+                                : 'bg-blue-50/50 hover:bg-blue-100/50'
+                            } cursor-pointer transition-colors duration-150`}
+                            onClick={() => handleRowClick(activityRowId)}
+                          >
+                            <td className="py-2 pl-12 pr-3 text-xs text-gray-700">
+                              <div className="flex items-center">
+                                <div className="w-5 border-l-2 border-b-2 border-gray-300 h-3 mr-2"></div>
+                                <span className="font-medium">{activityData.eventType}</span>
+                              </div>
+                            </td>
+                            
+                            {dataList.map((_, dIndex) => {
+                              const addressData = activityData.addressData.get(dIndex);
+                              
+                              if (!addressData) {
+                                return (
+                                  <React.Fragment key={`activity-empty-cell-${activityData.eventType}-${dIndex}`}>
+                                    <td className="px-4 py-2 text-xs text-gray-400 text-right border-l whitespace-nowrap">-</td>
+                                    <td className="px-4 py-2 text-xs text-gray-400 text-right whitespace-nowrap">-</td>
+                                  </React.Fragment>
+                                );
+                              }
+                              
+                              return (
+                                <React.Fragment key={`activity-data-${activityData.eventType}-${dIndex}`}>
+                                  <td className="px-4 py-2 text-xs text-right font-mono border-l whitespace-nowrap">
+                                    {addressData.points.toLocaleString()}
+                                  </td>
+                                  <td className="px-4 py-2 text-xs text-right font-mono whitespace-nowrap">
+                                    {convertFlowRate(addressData.flowrate, timeUnit)}
+                                  </td>
+                                </React.Fragment>
+                              );
+                            })}
+                          </tr>
+                        );
                       });
                     })()
                   }
