@@ -84,7 +84,7 @@ const config = {
   POINTS_TO_ASSIGN: 99,
   COMMUNITY_ACTIVATION_ID: 7370,
   THRESHOLD_TIME_PERIOD: 3600,
-  THRESHOLD_MAX_USERS: 1000,
+  THRESHOLD_MAX_USERS: 100,
   LOCKER_GRAPH_URL: "https://api.goldsky.com/api/public/project_clsnd6xsoma5j012qepvucfpp/subgraphs/sup/2.0.0/gn"
 };
 
