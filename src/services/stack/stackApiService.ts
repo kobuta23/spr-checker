@@ -4,7 +4,6 @@ import { getStackApiKey } from '../../config';
 import logger from '../../utils/logger';
 import { StackApiResponse, StackAllocation } from '../../models/types';
 import { addRecipient, getStoredRecipients, latestRecipients } from '../../utils/UBARecipients';
-import pMemoize from 'p-memoize';
 import { halfDayCache } from '../../config/cache';
 
 const COMMUNITY_ACTIVATION_ID = 7370;
@@ -235,22 +234,35 @@ const _getStackActivity = async (address: string, pointSystemId: number): Promis
  * Memoized version of getStackActivityForAllPointSystems
  * Caches results for 12 hours to reduce API calls
  */
-const getStackActivityForAllPointSystemsMemoized = pMemoize(_getStackActivityForAllPointSystems, {
-  cache: halfDayCache,
-  cacheKey([address]) {
-    return "stack-activity-all-" + address.toLowerCase();
-  }
-});
+let getStackActivityForAllPointSystemsMemoized = _getStackActivityForAllPointSystems;
+let getStackActivityMemoized = _getStackActivity;
 
-/**
- * Memoized version of getStackActivity
- * Caches results for 12 hours to reduce API calls
- */
-const getStackActivityMemoized = pMemoize(_getStackActivity, {
-  cache: halfDayCache,
-  cacheKey([address, pointSystemId]) {
-    return `stack-activity-${pointSystemId}-${address.toLowerCase()}`;
-  }
-});
+// Dynamically import p-memoize and set up the memoized functions
+(async () => {
+  try {
+    const pMemoizeModule = await import('p-memoize');
+    const pMemoize = pMemoizeModule.default;
+    
+    // Now set up memoized versions
+    getStackActivityForAllPointSystemsMemoized = pMemoize(_getStackActivityForAllPointSystems, {
+      cache: halfDayCache,
+      cacheKey([address]) {
+        return "stack-activity-all-" + address.toLowerCase();
+      }
+    });
 
-export default new StackApiService(); 
+    getStackActivityMemoized = pMemoize(_getStackActivity, {
+      cache: halfDayCache,
+      cacheKey([address, pointSystemId]) {
+        return "stack-activity-" + address.toLowerCase() + "-" + pointSystemId;
+      }
+    });
+    
+    logger.info('Successfully set up memoized Stack API functions');
+  } catch (error) {
+    logger.error('Failed to import p-memoize, using non-memoized versions as fallback', { error });
+  }
+})();
+
+const stackApiService = new StackApiService();
+export default stackApiService; 

@@ -1,0 +1,10 @@
+[
+  {
+    "schedule": "0 */6 * * *",
+    "command": "curl -X POST http://localhost:3000/api/referrals/update-sup-income"
+  },
+  {
+    "schedule": "0 12 * * *",
+    "command": "curl -X POST http://localhost:3000/api/referrals/update-discord"
+  }
+] 

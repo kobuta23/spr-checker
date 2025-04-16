@@ -11,6 +11,7 @@ import * as fs from 'fs';
 import axios from 'axios';
 import stackApiService from './services/stack/stackApiService';
 import imageProxyRouter from './routes/imageProxy';
+import referralRoutes from './routes/referralRoutes';
 import { getRecipients, getHighLevelStats, getStoredRecipients } from './utils/UBARecipients';
 require('dotenv').config();
 
@@ -87,11 +88,16 @@ app.get('/stack-activity', async (req, res) => {
   }
 });
 
+// Register referral routes
+console.log("Registering referral routes");
+app.use('/api/referrals', referralRoutes);
+
 // Add this after your API routes
 // Serve static files from the React app
 app.use(express.static(path.join(__dirname, '../src/client/build')));
 // Serve static files from the 'public' directory
-app.use(express.static(path.join(__dirname, '../src/client/public')));
+app.use('/assets', express.static(path.join(__dirname, '../src/client/build/assets')));
+app.use('/static', express.static(path.join(__dirname, '../src/client/build/static')));
 
 // Specific route for the visualizer (optional)
 app.get('/visualizer', (req, res) => {
