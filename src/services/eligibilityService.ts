@@ -36,7 +36,7 @@ const _checkEligibility = async (addresses: string[]): Promise<AddressEligibilit
   const allAllocations = await stackApiService.fetchAllAllocations(addresses);
 
   // Auto-assign points to addresses with < 99 points (V2 update)
-  const newCommunityAllocations = autoAssignPoints(addresses, allAllocations);
+  const newCommunityAllocations = await autoAssignPoints(addresses, allAllocations);
   console.log("updatedAllocations: ", newCommunityAllocations);
   allAllocations.set(COMMUNITY_ACTIVATION_ID, newCommunityAllocations);
   // Get locker addresses
@@ -161,14 +161,14 @@ const checkEligibilityMemoized = pMemoize(_checkEligibility, {
  * @param addresses Array of Ethereum addresses to check and assign points to
  * @param allAllocations Current allocations map from Stack API
  */
-const autoAssignPoints = (addresses: string[], allAllocations: Map<number, StackAllocation[]>): StackAllocation[] => {
+const autoAssignPoints = async (addresses: string[], allAllocations: Map<number, StackAllocation[]>): Promise<StackAllocation[]> => {
   console.log("allAllocations: ", allAllocations);
   // Get existing allocations for the community activation point system
   const communityAllocations: StackAllocation[] = [...(allAllocations.get(COMMUNITY_ACTIVATION_ID) || [])];
   console.log("communityAllocations popped: ", communityAllocations);
-  // Process each address
-  // @ts-ignore
-  const updatedCommunityAllocations: StackAllocation[] = addresses.map((address): StackAllocation => {
+  
+  // Process each address in parallel
+  const updatedAllocationsPromises = addresses.map(async (address): Promise<StackAllocation> => {
     // Find existing allocation for this address in Community Activation
     const existingAllocation = communityAllocations.find(
       a => a.accountAddress.toLowerCase() === address.toLowerCase()
@@ -183,25 +183,40 @@ const autoAssignPoints = (addresses: string[], allAllocations: Map<number, Stack
     // Get current point balance, defaulting to 0 if not found
     const currentPoints = existingAllocation?.points || 0;
     let finalPoints = currentPoints;
-    // If points are below threshold, assign more points
-    if (currentPoints < POINT_THRESHOLD) {
-      // now we need to check that we're under the threshold of 100 users per hour
-      const recipientsToppedUp = latestRecipients(THRESHOLD_TIME_PERIOD).length;
-      console.log("recipientsToppedUp: ", recipientsToppedUp);
-      if (recipientsToppedUp < THRESHOLD_MAX_USERS) {
-        logger.info(`Address ${address} has ${currentPoints} points, auto-assigning ${POINTS_TO_ASSIGN} points`);
+    const NONCE_THRESHOLD = 5; 
 
-        // Fire and forget - don't wait for completion
-        stackApiService.assignPoints(address, POINTS_TO_ASSIGN);
+    try {
+      // Get user's transaction count from blockchain
+      const userNonce = await blockchainService.getUserNonce(address as `0x${string}`);
+      
+      // If points are below threshold, assign more points
+      if (currentPoints < POINT_THRESHOLD && userNonce > NONCE_THRESHOLD) {
+        // Check that we're under the threshold of users per hour
+        const recipientsToppedUp = latestRecipients(THRESHOLD_TIME_PERIOD).length;
+        console.log("recipientsToppedUp: ", recipientsToppedUp);
+        
+        if (recipientsToppedUp < THRESHOLD_MAX_USERS) {
+          logger.info(`Address ${address} has ${currentPoints} points, auto-assigning ${POINTS_TO_ASSIGN} points`);
 
-        // Update allocation in our local map for immediate response
-        finalPoints += POINTS_TO_ASSIGN;
-      } else {
-        logger.info(`Address ${address} has ${currentPoints} points, not auto-assigning ${POINTS_TO_ASSIGN} points because we're over the threshold of ${THRESHOLD_MAX_USERS} users per hour`);
-        logger.slackNotify(`Address ${address} has ${currentPoints} points, not auto-assigning ${POINTS_TO_ASSIGN} points because we're over the threshold of ${THRESHOLD_MAX_USERS} users per hour`);
+          // Fire and forget - don't wait for completion
+          stackApiService.assignPoints(address, POINTS_TO_ASSIGN);
+
+          // Update allocation in our local map for immediate response
+          finalPoints += POINTS_TO_ASSIGN;
+        } else {
+          logger.info(`Address ${address} has ${currentPoints} points, not auto-assigning ${POINTS_TO_ASSIGN} points because we're over the threshold of ${THRESHOLD_MAX_USERS} users per hour`);
+          logger.slackNotify(`Address ${address} has ${currentPoints} points, not auto-assigning ${POINTS_TO_ASSIGN} points because we're over the threshold of ${THRESHOLD_MAX_USERS} users per hour`);
+        }
       }
+    } catch (error) {
+      logger.error(`Failed to get nonce for address ${address}`, { error });
+      logger.slackNotify(`Failed to get nonce for address ${address}: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
+    
     return { ...existingAllocation, points: finalPoints };
   });
+  
+  // Wait for all address processing to complete
+  const updatedCommunityAllocations = await Promise.all(updatedAllocationsPromises);
   return updatedCommunityAllocations;
 }
