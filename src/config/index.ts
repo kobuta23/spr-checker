@@ -77,6 +77,7 @@ const config = {
   ethereumRpcUrl: process.env.ETHEREUM_RPC_URL || 'https://mainnet.base.org',
   slackWebhookUrl: process.env.SLACK_WEBHOOK_URL || '',
   stackApiBaseUrl: process.env.STACK_API_BASE_URL || 'https://athena.stack.so',
+  apiBaseUrl: process.env.API_BASE_URL || 'http://localhost:9900/api',
   pointSystems,
   GDAForwarder: "0x6DA13Bde224A05a288748d857b9e7DDEffd1dE08",
   lockerFactoryAddress: "0xA6694cAB43713287F7735dADc940b555db9d39D9",

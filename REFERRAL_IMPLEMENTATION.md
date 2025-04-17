@@ -74,9 +74,9 @@ This document outlines the completed implementation of the referral system as sp
 ## Additional Features
 
 ### SUP Income Update System
-- ✅ Created `fetchSUPIncomeFromBlockchain` function to retrieve current SUP income from blockchain
+- ✅ Created `fetchSUPIncomeFromBlockchain` function to retrieve current SUP income from the eligibility service
 - ✅ Implemented `updateAllSUPIncomes` function to batch update all referrers' SUP income
-- ✅ Enhanced `refreshReferrerData` function to update actual blockchain data
+- ✅ Enhanced `refreshReferrerData` function to update data from the eligibility service
 - ✅ Added API endpoint `/api/referrals/update-sup-income` to trigger SUP income updates
 - ✅ Created cron job to automatically update SUP income every 6 hours
 - ✅ Added admin panel with manual update controls

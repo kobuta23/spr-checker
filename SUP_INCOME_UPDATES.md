@@ -122,4 +122,68 @@ curl -X POST http://localhost:3000/api/referrals/refresh/0x123456789012345678901
 
 # Update Discord leaderboard
 curl -X POST http://localhost:3000/api/referrals/update-discord
-``` 
+```
+
+## Eligibility API Integration
+
+The system fetches SUP income data directly from the existing eligibility API endpoint that provides an `estimatedFlowrate` value, rather than calculating it from blockchain data:
+
+- The eligibility API provides current and accurate flowrate information
+- Using the API ensures consistency with the rest of the application
+- This eliminates duplicate code and complex blockchain calculations
+
+## Implementation
+
+The core of this implementation is in the `fetchSUPIncomeFromBlockchain` function in `src/services/referralService.ts`:
+
+```typescript
+const fetchSUPIncomeFromBlockchain = async (address: string): Promise<string> => {
+  try {
+    // Call the eligibility service directly with the address
+    const eligibilityResults = await eligibilityService.checkEligibility([address]);
+    
+    // Extract the relevant data from the response
+    if (eligibilityResults && eligibilityResults.length > 0) {
+      const addressEligibility = eligibilityResults[0];
+      const totalFlowRate = addressEligibility.totalFlowRate || "0";
+      
+      return totalFlowRate;
+    } else {
+      return "0";
+    }
+  } catch (error) {
+    logger.error(`Failed to fetch SUP income for address ${address}`, { error });
+    return "0";
+  }
+};
+```
+
+Despite its name, this function directly leverages the application's eligibility service to efficiently access flow rate data without making redundant HTTP requests. This approach:
+
+1. Eliminates unnecessary network overhead
+2. Ensures data consistency with the rest of the application
+3. Takes advantage of the eligibility service's built-in caching
+
+## Update Process
+
+SUP income updates occur through several mechanisms:
+
+1. Automatic updates every 6 hours via cron job
+2. Manual refresh of specific referrers via the API endpoint `/api/referrals/refresh/:address`
+3. Manual batch update via the admin panel using `/api/referrals/update-sup-income`
+4. Automatic updates triggered by certain events (e.g., new referral registration)
+
+## Ranking System
+
+The SUP income values obtained from the eligibility API are used to determine user ranks:
+
+- Rank 1: 0 SUP/s (3 max referrals)
+- Rank 2: 0.0003 SUP/s (5 max referrals)
+- Rank 3: 0.0006 SUP/s (10 max referrals)
+- Rank 4: 0.0008 SUP/s (20 max referrals)
+
+The rank determines how many referrals a user can have and is updated whenever the SUP income is refreshed.
+
+## Configuration
+
+The eligibility API endpoint is configured in `src/config/index.ts` through the `apiBaseUrl` property, which defaults to `http://localhost:9900/api` but can be overridden by the `API_BASE_URL` environment variable. 

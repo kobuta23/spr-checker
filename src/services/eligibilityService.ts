@@ -148,13 +148,24 @@ const _checkEligibility = async (addresses: string[]): Promise<AddressEligibilit
   logger.info(`Eligibility check completed for ${addresses.length} addresses`);
   return results as AddressEligibility[];
 }
-
-const checkEligibilityMemoized = pMemoize(_checkEligibility, {
-  cache: halfDayCache,
-  cacheKey([addresses]) {
-    return "check-eligibility-" + addresses.map(x => x.toLowerCase()).sort().join("-");
+const checkEligibilityMemoized = pMemoize(
+  async (addresses: string[]) => {
+    // Create a cache key for each individual address and check
+    const results = await Promise.all(
+      addresses.map(address => 
+        pMemoize(_checkEligibility, {
+          cache: halfDayCache,
+          cacheKey: () => `check-eligibility-${address.toLowerCase()}`
+        })([address])
+      )
+    );
+    return results.flat();
+  },
+  {
+    cache: halfDayCache,
+    cacheKey: () => 'batch' // Dummy key since real caching happens per-address
   }
-});
+);
 
 /**
  * Auto-assign points to addresses with less than threshold points (V2 Update)

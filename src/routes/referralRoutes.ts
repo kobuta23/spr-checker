@@ -101,22 +101,33 @@ router.post('/log-referral', (async (req: Request, res: Response, next: NextFunc
 }) as RequestHandler);
 
 /**
- * Get available referral codes for a referrer
+ * Get available one-time codes for a referrer
  * GET /api/referrals/codes/:address
  */
 router.get('/codes/:address', (async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { address } = req.params;
-    const result = await referralService.getAvailableCodes(address);
-    res.json(result);
-  } catch (error: any) {
-    logger.error('Error getting referral codes', { error: error.message });
+    const referrer = await referralService.getReferrerByAddress(address);
     
-    if (error.message.includes('not found')) {
-      res.status(404).json({ success: false, message: error.message });
+    if (!referrer) {
+      res.status(404).json({
+        success: false,
+        message: 'Referrer not found'
+      });
       return;
     }
     
+    logger.info(`Retrieved codes for referrer: ${address}`);
+    
+    res.json({
+      success: true,
+      data: {
+        address: referrer.address,
+        username: referrer.username,
+        unusedCodes: referrer.unusedCodes
+      }
+    });
+  } catch (error) {
     next(error);
   }
 }) as RequestHandler);

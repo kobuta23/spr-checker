@@ -5,6 +5,8 @@ import { halfDayCache } from '../config/cache';
 import logger from '../utils/logger';
 import config from '../config';
 import blockchainService from './blockchain/blockchainService';
+import axios from 'axios';
+import eligibilityService from './eligibilityService';
 
 // Types
 interface Referral {
@@ -61,7 +63,7 @@ const determineRank = (SUPincome: string): { rank: number; maxReferrals: number 
 /**
  * Read referrers data from the JSON file
  */
-const readReferrersData = (): Promise<Referrer[]> => {
+const getAllReferrers = (): Promise<Referrer[]> => {
   return new Promise((resolve, reject) => {
     fs.readFile(DATA_FILE_PATH, 'utf8', (err, data) => {
       if (err) {
@@ -96,21 +98,6 @@ const writeReferrersData = (data: Referrer[]): Promise<void> => {
 };
 
 /**
- * Internal function to get all referrers data
- */
-const _getAllReferrers = async (): Promise<Referrer[]> => {
-  return await readReferrersData();
-};
-
-/**
- * Get all referrers data (with caching via p-memoize)
- */
-const getAllReferrers = pMemoize(_getAllReferrers, {
-  cache: halfDayCache,
-  cacheKey: () => 'all-referrers'
-});
-
-/**
  * Force refresh the referrers data
  */
 const refreshReferrersData = async (): Promise<Referrer[]> => {
@@ -120,43 +107,149 @@ const refreshReferrersData = async (): Promise<Referrer[]> => {
 };
 
 /**
- * Generate a unique one-time use referral code
+ * Generate a unique referral code
  */
-const generateUniqueCode = async (): Promise<string> => {
-  const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-  let code: string;
+const generateUniqueCode = (length: number = 6): string => {
+  const characters = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Removed confusing chars like 0/O, 1/I
+  let code = '';
   
-  // Get existing codes from all referrers
-  const referrers = await getAllReferrers();
-  const existingCodes = new Set<string>();
-  
-  // Collect all used and unused codes
-  referrers.forEach(referrer => {
-    referrer.unusedCodes.forEach(code => existingCodes.add(code));
-  });
-  
-  // Generate a unique code
-  do {
-    code = Array(6)
-      .fill(0)
-      .map(() => characters.charAt(Math.floor(Math.random() * characters.length)))
-      .join('');
-  } while (existingCodes.has(code));
+  for (let i = 0; i < length; i++) {
+    const randomIndex = Math.floor(Math.random() * characters.length);
+    code += characters.charAt(randomIndex);
+  }
   
   return code;
 };
 
 /**
- * Generate multiple unique codes based on count
+ * Generate initial codes for a new referrer
  */
-const generateCodes = async (count: number): Promise<string[]> => {
+const generateInitialCodes = async (count: number): Promise<string[]> => {
   const codes: string[] = [];
+  const allReferrers = await getAllReferrers();
+  const allExistingCodes = allReferrers.flatMap(r => r.unusedCodes);
   
   for (let i = 0; i < count; i++) {
-    codes.push(await generateUniqueCode());
+    let newCode: string;
+    let isUnique = false;
+    
+    // Keep generating until we get a unique code
+    while (!isUnique) {
+      newCode = generateUniqueCode();
+      isUnique = !allExistingCodes.includes(newCode) && !codes.includes(newCode);
+      
+      if (isUnique) {
+        codes.push(newCode);
+      }
+    }
   }
   
   return codes;
+};
+
+/**
+ * Generate new referral codes for a referrer
+ */
+const generateNewCodes = async (
+  address: string,
+  count: number = 3
+): Promise<{ success: boolean; codes: string[] }> => {
+  // Get the referrer
+  const referrer = await getReferrerByAddress(address);
+  
+  if (!referrer) {
+    throw new Error(`Referrer with address ${address} not found`);
+  }
+  
+  // Check if they already have the maximum number of codes
+  // Maximum allowed is 2x their rank's max referrals
+  const maxCodes = referrer.maxReferrals * 2;
+  
+  if (referrer.unusedCodes.length >= maxCodes) {
+    throw new Error(`Referrer already has the maximum number of codes (${maxCodes})`);
+  }
+  
+  // Calculate how many new codes we can generate
+  const availableSlots = maxCodes - referrer.unusedCodes.length;
+  const codesToGenerate = Math.min(count, availableSlots);
+  
+  // Generate unique codes
+  const allReferrers = await getAllReferrers();
+  const allExistingCodes = allReferrers.flatMap(r => r.unusedCodes);
+  
+  const newCodes: string[] = [];
+  for (let i = 0; i < codesToGenerate; i++) {
+    let newCode: string;
+    let isUnique = false;
+    
+    // Keep generating until we get a unique code
+    while (!isUnique) {
+      newCode = generateUniqueCode();
+      isUnique = !allExistingCodes.includes(newCode) && !newCodes.includes(newCode);
+      
+      if (isUnique) {
+        newCodes.push(newCode);
+      }
+    }
+  }
+  
+  // Update the referrer with new codes
+  const referrerIndex = allReferrers.findIndex(r => 
+    r.address.toLowerCase() === address.toLowerCase()
+  );
+  
+  if (referrerIndex !== -1) {
+    allReferrers[referrerIndex].unusedCodes = [
+      ...allReferrers[referrerIndex].unusedCodes,
+      ...newCodes
+    ];
+    
+    // Save changes
+    await writeReferrersData(allReferrers);
+    
+    // Refresh the cached data
+    await refreshReferrersData();
+  }
+  
+  return {
+    success: true,
+    codes: newCodes
+  };
+};
+
+/**
+ * Validate a referral code
+ */
+const validateReferralCode = async (code: string): Promise<{ 
+  isValid: boolean; 
+  referrer?: Referrer;
+  message?: string;
+}> => {
+  // Get all referrers
+  const referrers = await getAllReferrers();
+  
+  // Find the referrer with this code
+  const referrer = referrers.find(r => 
+    r.unusedCodes.some(c => c.toUpperCase() === code.toUpperCase())
+  );
+  
+  if (!referrer) {
+    return { 
+      isValid: false, 
+      message: 'Invalid or already used referral code' 
+    };
+  }
+  
+  // Check if referrer has reached maximum referrals
+  if (referrer.referrals.length >= referrer.maxReferrals) {
+    return { 
+      isValid: false, 
+      referrer,
+      message: `Referrer has reached the maximum number of referrals (${referrer.maxReferrals})` 
+    };
+  }
+  
+  return { isValid: true, referrer };
 };
 
 /**
@@ -189,7 +282,7 @@ const addReferrer = async (address: string, username: string): Promise<{
   const { rank, maxReferrals } = determineRank("0");
   
   // Generate initial codes based on rank
-  const codes = await generateCodes(maxReferrals);
+  const codes = await generateInitialCodes(maxReferrals);
   
   // Create new referrer object
   const newReferrer: Referrer = {
@@ -301,50 +394,28 @@ const getReferrerByAddress = pMemoize(_getReferrerByAddress, {
 });
 
 /**
- * Fetch SUP income data from the blockchain for a specific address
+ * Fetch SUP income data for a specific address using the eligibility service
  * @param address Ethereum address to check
  * @returns Promise with the SUP income value in wei/s as a string
  */
 const fetchSUPIncomeFromBlockchain = async (address: string): Promise<string> => {
   try {
-    logger.info(`Fetching SUP income from blockchain for address ${address}`);
+    logger.info(`Fetching SUP income for address ${address} using eligibility service`);
     
-    // Get the locker address if available
-    const lockerAddresses = await blockchainService.getLockerAddresses([address]);
-    const lockerAddress = lockerAddresses.get(address);
+    // Call the eligibility service directly with the address
+    const eligibilityResults = await eligibilityService.checkEligibility([address]);
     
-    if (!lockerAddress) {
-      logger.info(`No locker found for address ${address}, returning 0 income`);
+    // Extract the relevant data from the response
+    if (eligibilityResults && eligibilityResults.length > 0) {
+      const addressEligibility = eligibilityResults[0];
+      const totalFlowRate = addressEligibility.totalFlowRate || "0";
+      
+      logger.info(`Fetched SUP income for ${address}: ${totalFlowRate} wei/s`);
+      return totalFlowRate;
+    } else {
+      logger.info(`No eligibility data found for address ${address}, returning 0 income`);
       return "0";
     }
-    
-    // Initialize total income
-    let totalIncome = BigInt(0);
-    
-    // Check each GDA pool for income
-    for (const { gdaPoolAddress } of config.pointSystems) {
-      try {
-        // Get units for this address in this pool
-        const memberUnits = await blockchainService.checkClaimStatus(lockerAddress, gdaPoolAddress);
-        
-        // Get total units in the pool
-        const totalUnits = await blockchainService.getTotalUnits(gdaPoolAddress);
-        
-        // If there are units and this user has some, calculate their share of the pool's income
-        if (totalUnits > BigInt(0) && memberUnits > BigInt(0)) {
-          // This is a simplified calculation and would need to be adjusted based on 
-          // the actual token economics of the system
-          const poolFlowRate = BigInt("1000000000000000"); // Example: 0.001 SUP/s for the pool
-          const userFlowRate = (memberUnits * poolFlowRate) / totalUnits;
-          totalIncome += userFlowRate;
-        }
-      } catch (error) {
-        logger.error(`Error getting income from pool ${gdaPoolAddress} for address ${address}`, { error });
-      }
-    }
-    
-    logger.info(`Fetched SUP income for ${address}: ${totalIncome.toString()} wei/s`);
-    return totalIncome.toString();
   } catch (error) {
     logger.error(`Failed to fetch SUP income for address ${address}`, { error });
     return "0";
@@ -473,65 +544,6 @@ const getAvailableCodes = async (address: string): Promise<{
 };
 
 /**
- * Generate new referral codes for a referrer
- */
-const generateNewCodes = async (address: string): Promise<{
-  success: boolean;
-  codes: string[];
-  rank: number;
-  maxReferrals: number;
-  currentReferrals: number;
-}> => {
-  // Get the referrer data
-  const referrer = await getReferrerByAddress(address);
-  
-  if (!referrer) {
-    throw new Error('Referrer not found');
-  }
-  
-  // Calculate how many codes they can have
-  const maxCodesAllowed = referrer.maxReferrals - referrer.referrals.length;
-  const currentUnusedCount = referrer.unusedCodes.length;
-  
-  if (currentUnusedCount >= maxCodesAllowed) {
-    throw new Error(`You already have the maximum number of unused codes (${currentUnusedCount})`);
-  }
-  
-  // Generate new codes up to the maximum allowed
-  const newCodesCount = maxCodesAllowed - currentUnusedCount;
-  const newCodes = await generateCodes(newCodesCount);
-  
-  // Update the referrer with new codes
-  const referrers = await getAllReferrers();
-  const referrerIndex = referrers.findIndex(r => 
-    r.address.toLowerCase() === address.toLowerCase()
-  );
-  
-  if (referrerIndex !== -1) {
-    referrers[referrerIndex].unusedCodes = [
-      ...referrers[referrerIndex].unusedCodes,
-      ...newCodes
-    ];
-    
-    // Save the changes
-    await writeReferrersData(referrers);
-    
-    // Refresh the data
-    await refreshReferrersData();
-    
-    return {
-      success: true,
-      codes: referrers[referrerIndex].unusedCodes,
-      rank: referrer.rank,
-      maxReferrals: referrer.maxReferrals,
-      currentReferrals: referrer.referrals.length
-    };
-  }
-  
-  throw new Error('Failed to generate new codes');
-};
-
-/**
  * Sort referrers by total SUPincome of their referrals
  */
 const _getSortedReferrers = async (): Promise<Referrer[]> => {
@@ -572,5 +584,6 @@ export {
   refreshReferrersData,
   generateNewCodes,
   getAvailableCodes,
-  updateAllSUPIncomes
+  updateAllSUPIncomes,
+  validateReferralCode
 }; 

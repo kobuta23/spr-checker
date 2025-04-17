@@ -55,7 +55,7 @@ export const referralApi = {
   },
 
   // Get available referral codes for a user
-  getAvailableCodes: async (address: string): Promise<{ success: boolean; codes: string[] }> => {
+  getCodes: async (address: string): Promise<{ success: boolean; data: { unusedCodes: string[] } }> => {
     try {
       const response = await axios.get(`${API_BASE}/referrals/codes/${address}`);
       return response.data;

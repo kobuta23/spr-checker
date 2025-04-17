@@ -31,6 +31,12 @@ const getUserLockerAbi = [
   }
 ] as const;
 
+/**
+ * Blockchain Service for interacting with Ethereum contracts
+ * Note: SUP income is now fetched directly from the eligibility API endpoint 
+ * rather than being calculated from blockchain data through this service.
+ * This service is still used for other blockchain interactions.
+ */
 class BlockchainService {
   private client;
 

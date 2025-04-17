@@ -9,7 +9,9 @@ const RegisterTab: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [referralCode, setReferralCode] = useState<string | null>(null);
+  const [referralCodes, setReferralCodes] = useState<string[]>([]);
+  const [rank, setRank] = useState<number | null>(null);
+  const [maxReferrals, setMaxReferrals] = useState<number | null>(null);
 
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
@@ -31,16 +33,21 @@ const RegisterTab: React.FC = () => {
       setLoading(true);
       setError(null);
       setSuccessMessage(null);
-      setReferralCode(null);
+      setReferralCodes([]);
+      setRank(null);
+      setMaxReferrals(null);
       
       const response = await referralApi.addReferrer({
         address: address.trim(),
         discordUsername: discordUsername.trim()
       });
       
-      if (response.success && response.code) {
+      if (response.success && response.codes) {
         setSuccessMessage('You have been successfully registered as a referrer!');
-        setReferralCode(response.code);
+        setReferralCodes(response.codes);
+        setRank(response.rank || 1);
+        setMaxReferrals(response.maxReferrals || 3);
+        
         // Clear form
         setAddress('');
         setDiscordUsername('');
@@ -54,12 +61,18 @@ const RegisterTab: React.FC = () => {
     }
   };
 
+  const copyToClipboard = (code: string) => {
+    navigator.clipboard.writeText(code);
+    setSuccessMessage(`Code ${code} copied to clipboard!`);
+    setTimeout(() => setSuccessMessage('You have been successfully registered as a referrer!'), 2000);
+  };
+
   return (
     <div className="bg-white shadow overflow-hidden sm:rounded-lg">
       <div className="px-4 py-5 sm:px-6">
         <h3 className="text-lg leading-6 font-medium text-gray-900">Register as a Referrer</h3>
         <p className="mt-1 max-w-2xl text-sm text-gray-500">
-          Get your referral code and start earning rewards when others use it.
+          Get your referral codes and start earning rewards when others use them.
         </p>
       </div>
       
@@ -76,26 +89,39 @@ const RegisterTab: React.FC = () => {
               </div>
               <div className="ml-3">
                 <p className="text-sm font-medium text-green-800">{successMessage}</p>
-                {referralCode && (
-                  <div className="mt-2">
-                    <p className="text-sm text-green-700">Your referral code is:</p>
-                    <div className="mt-1 flex items-center">
-                      <span className="font-mono text-md font-medium bg-green-100 px-3 py-1 rounded">{referralCode}</span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          navigator.clipboard.writeText(referralCode);
-                          setSuccessMessage('Referral code copied to clipboard!');
-                        }}
-                        className="ml-2 text-green-600 hover:text-green-800 focus:outline-none"
-                      >
-                        <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                          <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" />
-                          <path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z" />
-                        </svg>
-                      </button>
+                
+                {rank !== null && maxReferrals !== null && (
+                  <p className="mt-2 text-sm text-green-700">
+                    You are now a Rank {rank} referrer with a maximum of {maxReferrals} referrals.
+                  </p>
+                )}
+                
+                {referralCodes.length > 0 && (
+                  <div className="mt-3">
+                    <p className="text-sm text-green-700">Your referral codes are:</p>
+                    
+                    <div className="mt-2 grid grid-cols-1 gap-2">
+                      {referralCodes.map((code, index) => (
+                        <div key={index} className="flex items-center justify-between bg-green-100 px-3 py-2 rounded">
+                          <span className="font-mono text-md font-medium">{code}</span>
+                          <button
+                            type="button"
+                            onClick={() => copyToClipboard(code)}
+                            className="ml-2 text-green-600 hover:text-green-800 focus:outline-none flex items-center"
+                          >
+                            <svg className="h-5 w-5 mr-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                              <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" />
+                              <path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z" />
+                            </svg>
+                            Copy
+                          </button>
+                        </div>
+                      ))}
                     </div>
-                    <p className="mt-2 text-sm text-green-700">Share this code with others to earn rewards!</p>
+                    
+                    <p className="mt-3 text-sm text-green-700">
+                      Share these codes with others to earn rewards! Each code can only be used once.
+                    </p>
                   </div>
                 )}
               </div>
