@@ -16,7 +16,8 @@
     "npm-build": "npm install && cd client && npm install && npm run build",
     "install-pnpm": "npm install -g pnpm",
     "ssh-deploy": "GIT_URL=https://github.com/kobuta23/spr-checker ./sf-deploy-https.sh && GIT_URL=https://github.com/kobuta23/spr-checker ./sf-deploy.sh",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "remove-points": "ts-node scripts/remove-points.ts"
   },
   "keywords": [
     "superfluid",

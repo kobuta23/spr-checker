@@ -88,14 +88,14 @@ class StackApiService {
    * @param points Number of points to assign
    * @returns Promise with assignment result
    */
-  async assignPoints(address: string, points: number): Promise<boolean> {
+  async assignPoints(address: string, points: number, eventName: string = "universal_allocation"): Promise<boolean> {
     try {
       const url = `https://track.stack.so/event`;
       // ${this.baseUrl}/point-system/${pointSystemId}/assign`;
       
       logger.info(`Assigning ${points} points to ${address} in point system ${COMMUNITY_ACTIVATION_ID}`);
       const data = [{
-        "name": "universal_allocation",
+        "name": eventName,
         "account": address.toLowerCase(),
         "pointSystemId": COMMUNITY_ACTIVATION_ID,
         "uniqueId": `universal-allocation-${address.toLowerCase()}`, // make up a unique id for the allocation
