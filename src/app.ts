@@ -1,3 +1,8 @@
+/**
+ * IMPORTANT: When making changes to API endpoints, remember to update
+ * API_DOCUMENTATION.md to keep documentation in sync with the code.
+ */
+
 import express, { Express } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';

@@ -46,6 +46,14 @@ class BlockchainService {
       transport: http(config.ethereumRpcUrl)
     });
   }
+
+  async getUserNonce(address: `0x${string}`): Promise<number> {
+    const transactionCount
+      = await this.client.getTransactionCount({  
+        address,
+      })
+  return Number(transactionCount)
+  }
   /**
    * Check the number of total units in a GDA pool so we can calculate the user's flowrate
    * @param gdaPoolAddress Address of the GDA pool contract
