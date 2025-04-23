@@ -1,161 +1,77 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { referralApi } from '../../utils/api';
-import { LeaderboardReferrer } from '../../types/referralTypes';
-import ErrorMessage from '../ErrorMessage';
+import Address from '../Address';
+import { formatSUPIncome } from '../../../../utils/formatter';
 import LoadingSpinner from '../LoadingSpinner';
+import ErrorMessage from '../ErrorMessage';
 
-// Define rank emojis
-const RANK_EMOJIS = {
-  1: '⭐', // Rank 1: Star
-  2: '🥉', // Rank 2: Bronze
-  3: '🥈', // Rank 3: Silver
-  4: '🥇'  // Rank 4: Gold
-};
-
+// Component displays the referral leaderboard
 const LeaderboardTab: React.FC = () => {
   const navigate = useNavigate();
-  const [leaderboardData, setLeaderboardData] = useState<LeaderboardReferrer[]>([]);
-  const [loading, setLoading] = useState(true);
+  
+  // State
+  const [leaderboardData, setLeaderboardData] = useState<any[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [expandedReferrer, setExpandedReferrer] = useState<string | null>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [updating, setUpdating] = useState(false);
-  const [updateMessage, setUpdateMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
   const [selectedAddresses, setSelectedAddresses] = useState<string[]>([]);
   
-  // Load leaderboard data
+  // Fetch leaderboard data on component mount
   useEffect(() => {
-    const fetchLeaderboardData = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const response = await referralApi.getLeaderboard();
-        if (response.success && response.data) {
-          setLeaderboardData(response.data);
-        } else {
-          setError('Failed to load leaderboard data');
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'An error occurred loading the leaderboard');
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchLeaderboardData();
   }, []);
-
-  // Format SUP income value for display
-  const formatSUPIncome = (value: string) => {
+  
+  // Fetch leaderboard data from API
+  const fetchLeaderboardData = async () => {
     try {
-      const bigIntValue = BigInt(value);
-      // Dividing by 10^18 to convert wei to SUP
-      const supValue = Number(bigIntValue) / (10 ** 18);
-      return supValue.toFixed(4);
-    } catch (e) {
-      return '0.0000';
+      setLoading(true);
+      setError(null);
+      
+      const response = await referralApi.getLeaderboard();
+      
+      if (response.success && response.data) {
+        setLeaderboardData(response.data);
+      } else {
+        setError('Failed to load leaderboard data');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred loading leaderboard data');
+    } finally {
+      setLoading(false);
     }
   };
-
-  // Get rank emoji based on rank number
-  const getRankEmoji = (rank: number) => {
-    return RANK_EMOJIS[rank as keyof typeof RANK_EMOJIS] || '⭐';
+  
+  // Utility function to get emoji for rank level
+  const getLevelEmoji = (level: number) => {
+    const emojis = ['🌱', '🌿', '🍃', '🌳', '🌴'];
+    return emojis[Math.min(level - 1, emojis.length - 1)];
   };
-
-  // Handle referrer click to expand/collapse
+  
+  // Toggle expanded state for a referrer
   const toggleReferrerExpand = (address: string) => {
-    setExpandedReferrer(currentExpanded => 
-      currentExpanded === address ? null : address
-    );
+    if (expandedReferrer === address) {
+      setExpandedReferrer(null);
+    } else {
+      setExpandedReferrer(address);
+    }
   };
-
-  // Toggle admin panel
-  const toggleAdmin = () => {
-    setIsAdmin(!isAdmin);
-  };
-
+  
   // Handle address selection for comparison
   const handleAddressSelection = (address: string) => {
-    setSelectedAddresses(prev => {
-      if (prev.includes(address)) {
-        // Remove if already selected
-        return prev.filter(a => a !== address);
-      } else {
-        // Add if not selected (limit to 5 addresses)
-        return prev.length < 5 ? [...prev, address] : prev;
+    if (selectedAddresses.includes(address)) {
+      setSelectedAddresses(selectedAddresses.filter(a => a !== address));
+    } else {
+      if (selectedAddresses.length < 5) {  // Limit to 5 addresses
+        setSelectedAddresses([...selectedAddresses, address]);
       }
-    });
+    }
   };
 
   // Navigate to comparison page with selected addresses
   const handleCompare = () => {
     if (selectedAddresses.length > 0) {
       navigate(`/?addresses=${selectedAddresses.join(',')}`);
-    }
-  };
-  
-  // Handle updating SUP income
-  const handleUpdateSUPIncome = async () => {
-    try {
-      setUpdating(true);
-      setUpdateMessage(null);
-      
-      const response = await referralApi.updateSUPIncome();
-      
-      if (response.success) {
-        setUpdateMessage({ 
-          text: response.message || 'SUP income updated successfully!', 
-          type: 'success' 
-        });
-        
-        // Reload the leaderboard data to show updated values
-        const leaderboardResponse = await referralApi.getLeaderboard();
-        if (leaderboardResponse.success && leaderboardResponse.data) {
-          setLeaderboardData(leaderboardResponse.data);
-        }
-      } else {
-        setUpdateMessage({ 
-          text: response.message || 'Failed to update SUP income', 
-          type: 'error' 
-        });
-      }
-    } catch (err) {
-      setUpdateMessage({ 
-        text: err instanceof Error ? err.message : 'An error occurred updating SUP income', 
-        type: 'error' 
-      });
-    } finally {
-      setUpdating(false);
-    }
-  };
-
-  // Handle updating Discord leaderboard
-  const handleUpdateDiscord = async () => {
-    try {
-      setUpdating(true);
-      setUpdateMessage(null);
-      
-      const response = await referralApi.updateDiscord();
-      
-      if (response.success) {
-        setUpdateMessage({ 
-          text: response.message || 'Discord leaderboard updated successfully!', 
-          type: 'success' 
-        });
-      } else {
-        setUpdateMessage({ 
-          text: response.message || 'Failed to update Discord leaderboard', 
-          type: 'error' 
-        });
-      }
-    } catch (err) {
-      setUpdateMessage({ 
-        text: err instanceof Error ? err.message : 'An error occurred updating Discord leaderboard', 
-        type: 'error' 
-      });
-    } finally {
-      setUpdating(false);
     }
   };
 
@@ -183,42 +99,8 @@ const LeaderboardTab: React.FC = () => {
               Compare ({selectedAddresses.length})
             </button>
           )}
-          <button
-            onClick={toggleAdmin}
-            className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-          >
-            {isAdmin ? 'Hide Admin' : 'Admin'}
-          </button>
         </div>
       </div>
-
-      {/* Admin section */}
-      {isAdmin && (
-        <div className="px-4 py-3 bg-gray-50 border-t border-gray-200">
-          <h4 className="text-md font-medium text-gray-700 mb-2">Admin Controls</h4>
-          <div className="flex flex-wrap gap-2">
-            <button
-              onClick={handleUpdateSUPIncome}
-              disabled={updating}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
-            >
-              {updating ? 'Updating...' : 'Update SUP Income'}
-            </button>
-            <button
-              onClick={handleUpdateDiscord}
-              disabled={updating}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
-            >
-              {updating ? 'Updating...' : 'Update Discord Leaderboard'}
-            </button>
-          </div>
-          {updateMessage && (
-            <div className={`mt-2 text-sm ${updateMessage.type === 'success' ? 'text-green-600' : 'text-red-600'}`}>
-              {updateMessage.text}
-            </div>
-          )}
-        </div>
-      )}
       
       {selectedAddresses.length > 0 && (
         <div className="px-4 py-3 bg-indigo-50 border-t border-indigo-200">
@@ -246,13 +128,13 @@ const LeaderboardTab: React.FC = () => {
             <thead className="bg-gray-50">
               <tr>
                 <th scope="col" className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Select
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Rank
+                  Position
                 </th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Username
+                </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  User's SUP Income
                 </th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Referrals
@@ -280,26 +162,33 @@ const LeaderboardTab: React.FC = () => {
                         onChange={() => handleAddressSelection(referrer.address)}
                         disabled={selectedAddresses.length >= 5 && !selectedAddresses.includes(referrer.address)}
                       />
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      <span className="flex items-center">
-                        <span className="mr-2">{getRankEmoji(referrer.rank)}</span>
+                      <span className="ml-4">
                         {index + 1}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {referrer.username}
+                      <div className="flex items-center">
+                        <Address 
+                          address={referrer.address} 
+                          nameOverride={referrer.username}
+                          showProfileIcon 
+                        />
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {formatSUPIncome(referrer.SUPincome, 'SUP/mo')}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       <span className={referrer.referralCount >= referrer.maxReferrals ? "text-red-500 font-semibold" : ""}>
                         {referrer.referralCount}/{referrer.maxReferrals}
                       </span>
+                      <span className="ml-2">{getLevelEmoji(referrer.level)}</span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {formatSUPIncome(referrer.totalReferralSUPincome)} SUP
+                      {formatSUPIncome(referrer.totalReferralSUPincome, 'SUP/mo')}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {formatSUPIncome(referrer.avgReferralSUPincome)} SUP
+                      {formatSUPIncome(referrer.avgReferralSUPincome, 'SUP/mo')}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <button
@@ -314,7 +203,7 @@ const LeaderboardTab: React.FC = () => {
                   {/* Expanded details row */}
                   {expandedReferrer === referrer.address && (
                     <tr className="bg-gray-50">
-                      <td colSpan={7} className="px-6 py-4">
+                      <td colSpan={8} className="px-6 py-4">
                         <div className="text-sm">
                           <p className="font-medium text-gray-800 mb-2">Referral Details</p>
                           
@@ -340,10 +229,10 @@ const LeaderboardTab: React.FC = () => {
                                   {referrer.referrals.map(referral => (
                                     <tr key={referral.address}>
                                       <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-500 font-mono">
-                                        {referral.address.slice(0, 8)}...{referral.address.slice(-6)}
+                                        <Address address={referral.address} className="text-xs" />
                                       </td>
                                       <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-500">
-                                        {formatSUPIncome(referral.SUPincome)} SUP
+                                        {formatSUPIncome(referral.SUPincome)}
                                       </td>
                                       <td className="px-4 py-2 whitespace-nowrap text-xs">
                                         <button

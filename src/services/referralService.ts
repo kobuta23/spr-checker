@@ -7,6 +7,7 @@ import config from '../config';
 import blockchainService from './blockchain/blockchainService';
 import axios from 'axios';
 import eligibilityService from './eligibilityService';
+import * as discordService from './discord';
 
 // Types
 interface Referral {
@@ -14,11 +15,12 @@ interface Referral {
   SUPincome: string;
 }
 
-interface Referrer {
+export interface Referrer {
   address: string;
   username: string;
+  discordId: string;
   SUPincome: string;
-  rank: number;
+  level: number;
   maxReferrals: number;
   unusedCodes: string[];
   referrals: Referral[];
@@ -27,36 +29,36 @@ interface Referrer {
 // Path to the JSON data file
 const DATA_FILE_PATH = path.join(process.cwd(), 'data', 'referrals.json');
 
-// SUP income thresholds for ranks (in wei/s)
-const RANK_THRESHOLDS = {
-  RANK_4: BigInt("800000000000000"), // Highest rank
-  RANK_3: BigInt("600000000000000"),
-  RANK_2: BigInt("300000000000000"),
-  RANK_1: BigInt("0")                // Lowest rank
+// SUP income thresholds for levels (in wei/s)
+const LEVEL_THRESHOLDS = {
+  LEVEL_4: BigInt("800000000000000"), // Highest level      
+  LEVEL_3: BigInt("600000000000000"),
+  LEVEL_2: BigInt("300000000000000"),
+  LEVEL_1: BigInt("0")                // Lowest level
 };
 
-// Max referrals per rank
-const MAX_REFERRALS_BY_RANK = {
-  4: 20, // Rank 4: 20 max referrals
-  3: 10, // Rank 3: 10 max referrals
-  2: 5,  // Rank 2: 5 max referrals
-  1: 3   // Rank 1: 3 max referrals
+// Max referrals per level
+const MAX_REFERRALS_BY_LEVEL = {
+  4: 20, // Level 4: 20 max referrals
+  3: 10, // Level 3: 10 max referrals
+  2: 5,  // Level 2: 5 max referrals
+  1: 3   // Level 1: 3 max referrals
 };
 
 /**
- * Determine rank and max referrals based on SUP income
+ * Determine level and max referrals based on SUP income
  */
-const determineRank = (SUPincome: string): { rank: number; maxReferrals: number } => {
+const determineLevel = (SUPincome: string): { level: number; maxReferrals: number } => {
   const income = BigInt(SUPincome);
   
-  if (income >= RANK_THRESHOLDS.RANK_4) {
-    return { rank: 4, maxReferrals: MAX_REFERRALS_BY_RANK[4] };
-  } else if (income >= RANK_THRESHOLDS.RANK_3) {
-    return { rank: 3, maxReferrals: MAX_REFERRALS_BY_RANK[3] };
-  } else if (income >= RANK_THRESHOLDS.RANK_2) {
-    return { rank: 2, maxReferrals: MAX_REFERRALS_BY_RANK[2] };
+  if (income >= LEVEL_THRESHOLDS.LEVEL_4) {
+    return { level: 4, maxReferrals: MAX_REFERRALS_BY_LEVEL[4] };
+  } else if (income >= LEVEL_THRESHOLDS.LEVEL_3) {
+    return { level: 3, maxReferrals: MAX_REFERRALS_BY_LEVEL[3] };
+  } else if (income >= LEVEL_THRESHOLDS.LEVEL_2) {
+    return { level: 2, maxReferrals: MAX_REFERRALS_BY_LEVEL[2] };
   } else {
-    return { rank: 1, maxReferrals: MAX_REFERRALS_BY_RANK[1] };
+    return { level: 1, maxReferrals: MAX_REFERRALS_BY_LEVEL[1] };
   }
 };
 
@@ -98,15 +100,6 @@ const writeReferrersData = (data: Referrer[]): Promise<void> => {
 };
 
 /**
- * Force refresh the referrers data
- */
-const refreshReferrersData = async (): Promise<Referrer[]> => {
-  // Clear the cache entry
-  halfDayCache.delete('all-referrers');
-  return await getAllReferrers();
-};
-
-/**
  * Generate a unique referral code
  */
 const generateUniqueCode = (length: number = 6): string => {
@@ -124,9 +117,8 @@ const generateUniqueCode = (length: number = 6): string => {
 /**
  * Generate initial codes for a new referrer
  */
-const generateInitialCodes = async (count: number): Promise<string[]> => {
+const generateCodes = async (count: number, allReferrers: Referrer[]): Promise<string[]> => {
   const codes: string[] = [];
-  const allReferrers = await getAllReferrers();
   const allExistingCodes = allReferrers.flatMap(r => r.unusedCodes);
   
   for (let i = 0; i < count; i++) {
@@ -143,61 +135,43 @@ const generateInitialCodes = async (count: number): Promise<string[]> => {
       }
     }
   }
-  
   return codes;
 };
 
 /**
  * Generate new referral codes for a referrer
  */
-const generateNewCodes = async (
-  address: string,
-  count: number = 3
+const refreshCodes = async (
+  referrer: Referrer
 ): Promise<{ success: boolean; codes: string[] }> => {
-  // Get the referrer
-  const referrer = await getReferrerByAddress(address);
-  
-  if (!referrer) {
-    throw new Error(`Referrer with address ${address} not found`);
-  }
-  
   // Check if they already have the maximum number of codes
-  // Maximum allowed is 2x their rank's max referrals
-  const maxCodes = referrer.maxReferrals * 2;
-  
+  // Maximum allowed is their level's max referrals
+  const maxCodes = referrer.maxReferrals;
+
   if (referrer.unusedCodes.length >= maxCodes) {
-    throw new Error(`Referrer already has the maximum number of codes (${maxCodes})`);
+    return {
+      success: true,
+      codes: referrer.unusedCodes
+    };
   }
   
   // Calculate how many new codes we can generate
-  const availableSlots = maxCodes - referrer.unusedCodes.length;
-  const codesToGenerate = Math.min(count, availableSlots);
-  
+  const codesToGenerate = maxCodes - referrer.unusedCodes.length - referrer.referrals.length;
+  console.log(`the user can generate a maximum of ${maxCodes} codes`);
+  console.log(`the user has ${referrer.unusedCodes.length} unused codes`);
+  console.log(`the user has ${referrer.referrals.length} referrals`);
+  console.log(`the user can generate ${codesToGenerate} new codes`);
   // Generate unique codes
   const allReferrers = await getAllReferrers();
-  const allExistingCodes = allReferrers.flatMap(r => r.unusedCodes);
-  
-  const newCodes: string[] = [];
-  for (let i = 0; i < codesToGenerate; i++) {
-    let newCode: string;
-    let isUnique = false;
-    
-    // Keep generating until we get a unique code
-    while (!isUnique) {
-      newCode = generateUniqueCode();
-      isUnique = !allExistingCodes.includes(newCode) && !newCodes.includes(newCode);
-      
-      if (isUnique) {
-        newCodes.push(newCode);
-      }
-    }
-  }
-  
+
+  const newCodes: string[] = await generateCodes(codesToGenerate, allReferrers);
+
+  console.log("newCodes: ", newCodes);
   // Update the referrer with new codes
   const referrerIndex = allReferrers.findIndex(r => 
-    r.address.toLowerCase() === address.toLowerCase()
+    r.address.toLowerCase() === referrer.address.toLowerCase()
   );
-  
+   
   if (referrerIndex !== -1) {
     allReferrers[referrerIndex].unusedCodes = [
       ...allReferrers[referrerIndex].unusedCodes,
@@ -206,14 +180,11 @@ const generateNewCodes = async (
     
     // Save changes
     await writeReferrersData(allReferrers);
-    
-    // Refresh the cached data
-    await refreshReferrersData();
   }
   
   return {
     success: true,
-    codes: newCodes
+    codes: [...newCodes, ...referrer.unusedCodes]
   };
 };
 
@@ -255,9 +226,9 @@ const validateReferralCode = async (code: string): Promise<{
 /**
  * Add a new referrer
  */
-const addReferrer = async (address: string, username: string): Promise<{ 
+const addReferrer = async (address: string, username: string, discordId: string): Promise<{ 
   success: boolean; 
-  rank: number; 
+  level: number; 
   maxReferrals: number; 
   codes: string[] 
 }> => {
@@ -278,18 +249,19 @@ const addReferrer = async (address: string, username: string): Promise<{
     throw new Error('Username already taken');
   }
   
-  // Default to rank 1 for new referrers (can be refreshed later)
-  const { rank, maxReferrals } = determineRank("0");
+  // Default to level 1 for new referrers (can be refreshed later)
+  const { level, maxReferrals } = determineLevel("0");
   
-  // Generate initial codes based on rank
-  const codes = await generateInitialCodes(maxReferrals);
+  // Generate initial codes based on level
+  const codes = await generateCodes(maxReferrals, referrers);
   
   // Create new referrer object
   const newReferrer: Referrer = {
     address,
     username,
+    discordId,
     SUPincome: "0",
-    rank,
+    level,
     maxReferrals,
     unusedCodes: codes,
     referrals: []
@@ -298,13 +270,12 @@ const addReferrer = async (address: string, username: string): Promise<{
   // Add to the list and save
   referrers.push(newReferrer);
   await writeReferrersData(referrers);
-  
-  // Refresh the cached data
-  await refreshReferrersData();
-  
+  // specifically don't wait for this to finish
+  refreshReferrerData(address);
+
   return { 
     success: true,
-    rank, 
+    level, 
     maxReferrals, 
     codes 
   };
@@ -316,7 +287,7 @@ const addReferrer = async (address: string, username: string): Promise<{
 const logReferral = async (
   referralAddress: string, 
   referrerCode: string
-): Promise<{ success: boolean; message: string }> => {
+): Promise<{ success: boolean; message: string; referrer?: Referrer }> => {
   // Validate input
   if (!referralAddress || !referrerCode) {
     throw new Error('Referral address and referrer code are required');
@@ -367,11 +338,9 @@ const logReferral = async (
   // Save changes
   await writeReferrersData(referrers);
   
-  // Refresh the cached data
-  await refreshReferrersData();
-  
   return { 
     success: true, 
+    referrer: referrers[referrerIndex],
     message: `Successfully added referral for ${referrers[referrerIndex].username}`
   };
 };
@@ -393,6 +362,26 @@ const getReferrerByAddress = pMemoize(_getReferrerByAddress, {
   cacheKey: ([address]) => `referrer-${address.toLowerCase()}`
 });
 
+/**
+ * Get a specific referrer by address (with caching)
+ */
+const getReferrerByDiscordId = async (discordId: string): Promise<Referrer | null> => {
+    let referrers: Referrer[] = [];
+    try {
+        referrers = await getAllReferrers();
+    } catch (error) {
+        logger.error('Error getting all referrers in getReferrerByDiscordId', { error });
+        return null;
+    }
+    try {
+        console.log("referrers: ", referrers);
+        const referrer = referrers.find(r => r.discordId.toLowerCase() === discordId.toLowerCase());
+        return referrer || null;
+    } catch (error) {
+        logger.error('Error getting referrer by discord id', { error });
+        return null;
+    }
+  };
 /**
  * Fetch SUP income data for a specific address using the eligibility service
  * @param address Ethereum address to check
@@ -441,9 +430,9 @@ const updateAllSUPIncomes = async (): Promise<void> => {
       const referrerSUPIncome = await fetchSUPIncomeFromBlockchain(referrer.address);
       updatedReferrers[i].SUPincome = referrerSUPIncome;
       
-      // Update rank and max referrals based on new income
-      const { rank, maxReferrals } = determineRank(referrerSUPIncome);
-      updatedReferrers[i].rank = rank;
+      // Update level and max referrals based on new income
+      const { level, maxReferrals } = determineLevel(referrerSUPIncome);
+      updatedReferrers[i].level = level;
       updatedReferrers[i].maxReferrals = maxReferrals;
       
       // Update each referral's SUP income
@@ -461,9 +450,6 @@ const updateAllSUPIncomes = async (): Promise<void> => {
     // Save the updated data
     await writeReferrersData(updatedReferrers);
     
-    // Clear caches
-    refreshReferrersData();
-    
     logger.info('Successfully updated all SUP incomes');
   } catch (error) {
     logger.error('Failed to update all SUP incomes', { error });
@@ -477,7 +463,6 @@ const updateAllSUPIncomes = async (): Promise<void> => {
 const refreshReferrerData = async (address: string): Promise<Referrer | null> => {
   // Clear specific cache entries
   halfDayCache.delete(`referrer-${address.toLowerCase()}`);
-  halfDayCache.delete('all-referrers');
   halfDayCache.delete('sorted-referrers');
   
   // Get the referrer data
@@ -495,9 +480,9 @@ const refreshReferrerData = async (address: string): Promise<Referrer | null> =>
       const newSUPIncome = await fetchSUPIncomeFromBlockchain(address);
       referrers[referrerIndex].SUPincome = newSUPIncome;
       
-      // Update rank and maxReferrals based on new SUP income
-      const { rank, maxReferrals } = determineRank(newSUPIncome);
-      referrers[referrerIndex].rank = rank;
+      // Update level and maxReferrals based on new SUP income
+      const { level, maxReferrals } = determineLevel(newSUPIncome);
+      referrers[referrerIndex].level = level;
       referrers[referrerIndex].maxReferrals = maxReferrals;
       
       // Update SUP income for each referral
@@ -509,7 +494,7 @@ const refreshReferrerData = async (address: string): Promise<Referrer | null> =>
       
       // Save the changes
       await writeReferrersData(referrers);
-      
+      await discordService.postLeaderboard(referrers);
       // Return the updated referrer
       return referrers[referrerIndex];
     }
@@ -521,26 +506,33 @@ const refreshReferrerData = async (address: string): Promise<Referrer | null> =>
 /**
  * Get available referral codes for a referrer
  */
-const getAvailableCodes = async (address: string): Promise<{
+const getAvailableCodes = async (referrer: Referrer): Promise<{
   success: boolean;
   codes: string[];
-  rank: number;
+  level: number;
   maxReferrals: number;
   currentReferrals: number;
 }> => {
-  const referrer = await getReferrerByAddress(address);
+    if (!referrer) {
+        throw new Error('Referrer not found');
+    }
+    let codes: string[] = [];
+    try {
+        const result = await refreshCodes(referrer);
+        codes = result.codes;
+        console.log("inside getAvailableCodes, codes: ", codes);
+    } catch (error) {
+        logger.error('Error refreshing codes', { error });
+        throw error;
+    }
   
-  if (!referrer) {
-    throw new Error('Referrer not found');
-  }
-  
-  return {
-    success: true,
-    codes: referrer.unusedCodes,
-    rank: referrer.rank,
-    maxReferrals: referrer.maxReferrals,
-    currentReferrals: referrer.referrals.length
-  };
+    return {
+        success: true,
+        codes,
+        level: referrer.level,
+        maxReferrals: referrer.maxReferrals,
+        currentReferrals: referrer.referrals.length
+    };
 };
 
 /**
@@ -573,17 +565,82 @@ const getSortedReferrers = pMemoize(_getSortedReferrers, {
   cacheKey: () => 'sorted-referrers'
 });
 
+const getReferrerCodesByAddress = async (address: string): Promise<Referrer | null> => {
+    let referrer = await getReferrerByAddress(address);
+    
+    if (referrer) {
+      const refreshedReferrer = await refreshReferrerData(referrer.address);
+      if (refreshedReferrer) {
+        referrer = refreshedReferrer;
+        const {codes} = await refreshCodes(referrer);
+        referrer.unusedCodes = codes;
+      }
+    }
+    return referrer;
+};
+
+const postLeaderboard = async (refresh: boolean = false): Promise<void> => {
+    if (refresh) {
+        await updateAllSUPIncomes();
+    }
+    // Update Discord leaderboard after updating incomes
+    try {
+      const allReferrers = await getSortedReferrers();
+      await discordService.postLeaderboard(allReferrers);
+    } catch (discordError) {
+      logger.error('Failed to update Discord leaderboard after SUP income update', { error: discordError });
+      // Don't fail the request if Discord update fails
+    }
+};
+
+/**
+ * Calculate derived values for a referrer and return enriched data
+ */
+const getEnrichedReferrerData = (referrer: Referrer) => {
+  // Calculate total SUPincome of referred users
+  const totalSUPincome = referrer.referrals.reduce(
+    (sum, referral) => sum + BigInt(referral.SUPincome),
+    BigInt(0)
+  ).toString();
+  
+  // Calculate average SUPincome (if there are referrals)
+  const avgSUPincome = referrer.referrals.length > 0
+    ? (BigInt(totalSUPincome) / BigInt(referrer.referrals.length)).toString()
+    : "0";
+  
+  // Sort referrals by SUPincome
+  const sortedReferrals = [...referrer.referrals].sort((a, b) => {
+    return BigInt(b.SUPincome) > BigInt(a.SUPincome) ? 1 : -1;
+  });
+  
+  return {
+    address: referrer.address,
+    username: referrer.username,
+    SUPincome: referrer.SUPincome,
+    level: referrer.level,
+    maxReferrals: referrer.maxReferrals,
+    referralCount: referrer.referrals.length,
+    unusedCodes: referrer.unusedCodes,
+    totalReferralSUPincome: totalSUPincome,
+    avgReferralSUPincome: avgSUPincome,
+    referrals: sortedReferrals
+  };
+};
+
 // Export all the functions that should be available to other modules
 export {
   getAllReferrers,
   getSortedReferrers,
   getReferrerByAddress,
+  getReferrerByDiscordId,
   addReferrer,
   logReferral,
   refreshReferrerData,
-  refreshReferrersData,
-  generateNewCodes,
+  refreshCodes,
   getAvailableCodes,
   updateAllSUPIncomes,
-  validateReferralCode
+  validateReferralCode,
+  getReferrerCodesByAddress,
+  postLeaderboard,
+  getEnrichedReferrerData
 }; 

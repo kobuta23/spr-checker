@@ -7,7 +7,7 @@ export interface Referrer {
   address: string;
   username: string;
   SUPincome: string;
-  rank: number;
+  level: number;
   maxReferrals: number;
   unusedCodes: string[];
   referrals: Referral[];
@@ -36,7 +36,7 @@ export interface AddReferrerRequest {
 
 export interface AddReferrerResponse {
   success: boolean;
-  rank?: number;
+  level?: number;
   maxReferrals?: number;
   codes?: string[];
   message?: string;
@@ -61,7 +61,7 @@ export interface RefreshResponse {
 export interface CodeResponse {
   success: boolean;
   codes: string[];
-  rank: number;
+  level: number;
   maxReferrals: number;
   currentReferrals: number;
 } 

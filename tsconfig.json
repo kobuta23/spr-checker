@@ -114,5 +114,9 @@
   "exclude": [
     "node_modules",
     "src/client/**/*"
-  ]
+  ],
+  "ts-node": {
+    "esm": true
+  },
+  "type": "module"
 }

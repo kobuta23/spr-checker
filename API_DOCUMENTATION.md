@@ -15,7 +15,15 @@ This document provides a comprehensive reference for all API endpoints available
     - [Recipient Stats](#recipient-stats)
     - [Superfluid Resolution](#superfluid-resolution)
     - [Stack Activity](#stack-activity)
+    - [Referrals](#referrals)
+      - [Get All Referrals (Leaderboard)](#get-all-referrals-leaderboard)
+      - [Get Specific Referrer](#get-specific-referrer)
+      - [Get Referral Codes](#get-referral-codes)
+      - [Log Referral](#log-referral)
+      - [Generate Referral Codes](#generate-referral-codes)
     - [Image Proxy](#image-proxy)
+      - [Proxy Image](#proxy-image)
+      - [Test Route](#test-route)
   - [Error Handling](#error-handling)
   - [Static Files](#static-files)
 
@@ -123,18 +131,128 @@ Base URL: Depends on deployment environment
 **Error Responses:**
 - `400 Bad Request`: If the address is missing or invalid.
 
+**Example Requests:**
+- `/stack-activity?address=0x38982E4E9908b2fAA98992D09E8CD31CAB6C6B25`
+- `/stack-activity?address=0x38982E4E9908b2fAA98992D09E8CD31CAB6C6B25&point-system-id=7370`
+
+---
+
+### Referrals
+
+**Base Route:** `/api/referrals`
+
+#### Get All Referrals (Leaderboard)
+
+**Endpoint:** `GET /api/referrals`
+
+**Description:** Retrieves all referrers with their referrals, sorted to create a leaderboard.
+
+**Response:** JSON object containing an array of referrers with their referral data, including:
+- Address, username, level
+- SUP income
+- Number of referrals
+- Total and average referral SUP income
+- List of referrals
+
+---
+
+#### Get Specific Referrer
+
+**Endpoint:** `GET /api/referrals/:address`
+
+**Description:** Retrieves data for a specific referrer by their address.
+
+**Path Parameters:**
+- `address`: Ethereum address of the referrer.
+
+**Response:** JSON object containing the referrer's data including their referrals.
+
+**Error Responses:**
+- `404 Not Found`: If the referrer is not found.
+
+---
+
+#### Get Referral Codes
+
+**Endpoint:** `GET /api/referrals/codes/:address`
+
+**Description:** Retrieves available one-time codes for a specific referrer.
+
+**Path Parameters:**
+- `address`: Ethereum address of the referrer.
+
+**Response:** JSON object containing the referrer's address, username, and unused codes.
+
+**Error Responses:**
+- `404 Not Found`: If the referrer is not found.
+
+---
+
+#### Log Referral
+
+**Endpoint:** `POST /api/referrals/log-referral`
+
+**Description:** Records a new referral using a referrer's code.
+
+**Request Body:**
+- `referralAddress`: Ethereum address of the person being referred.
+- `referrerCode`: The referral code being used.
+
+**Response:** JSON object with the result of the operation.
+
+**Error Responses:**
+- `400 Bad Request`: If referral address or referrer code is missing.
+- `404 Not Found`: If the referrer code is invalid.
+- `409 Conflict`: If the address is already registered.
+- `403 Forbidden`: If the maximum number of referrals has been reached.
+
+---
+
+#### Generate Referral Codes
+
+**Endpoint:** `POST /api/referrals/generate-codes/:address`
+
+**Description:** Generates new referral codes for a referrer.
+
+**Path Parameters:**
+- `address`: Ethereum address of the referrer.
+
+**Response:** JSON object with the result of the operation.
+
+**Error Responses:**
+- `404 Not Found`: If the referrer is not found.
+- `400 Bad Request`: If the maximum number of codes has been reached.
+
 ---
 
 ### Image Proxy
 
-**Endpoint:** `GET /api/*`
+**Base Route:** `/api`
+
+#### Proxy Image
+
+**Endpoint:** `GET /api/proxy-image`
 
 **Description:** Proxies image requests to external services, allowing images to be displayed within the application while respecting the Content Security Policy.
 
-**Path Parameters:**
-- The proxy path details are defined in the imageProxyRouter (not fully visible in the code sample).
+**Query Parameters:**
+- `url` (required): String - URL of the image to be proxied.
 
-**Response:** Image data or error response.
+**Response:** 
+- Image data with the appropriate content type.
+- Cache headers set to 24 hours (max-age=86400).
+
+**Error Responses:**
+- `400 Bad Request`: If no image URL is provided or the URL format is invalid.
+- `500 Internal Server Error`: If there's an error fetching the image.
+
+#### Test Route
+
+**Endpoint:** `GET /api/test`
+
+**Description:** Simple route to verify the image proxy router is working.
+
+**Response:** String confirming "Image proxy router is working".
 
 ---
 
@@ -157,9 +275,9 @@ Other errors are handled by the errorHandler middleware, which formats errors ap
 
 The API also serves static files:
 - React application from `/src/client/build`
-- Public assets from `/src/client/public`
+- Public assets from the React app are served at `/assets` and `/static`
 - Visualizer page available at `/visualizer`
 
 ---
 
-*Note: This documentation is based on the provided code sample. Some implementation details might not be fully captured if they're defined in imported controllers or routers.* 
+*Note: This documentation is based on the code in app.ts. Some implementation details might not be fully captured if they're defined in imported controllers or routers.*

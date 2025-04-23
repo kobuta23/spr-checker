@@ -4,7 +4,7 @@ import logger from '../utils/logger';
 import config from '../config';
 import { AddressEligibility, PointSystemEligibility, StackAllocation } from '../models/types';
 import { latestRecipients } from '../utils/UBARecipients';
-import pMemoize from 'p-memoize';
+//import pMemoize from 'p-memoize';
 import { halfDayCache } from '../config/cache';
 
 const { POINT_THRESHOLD, POINTS_TO_ASSIGN, COMMUNITY_ACTIVATION_ID, THRESHOLD_TIME_PERIOD, THRESHOLD_MAX_USERS } = config;
@@ -17,7 +17,7 @@ class EligibilityService {
    */
   async checkEligibility(addresses: string[]): Promise<AddressEligibility[]> {
     try {
-      return await checkEligibilityMemoized(addresses);
+      return await _checkEligibility(addresses); // checkEligibilityMemoized(addresses);
     } catch (error) {
       logger.error('Failed to check eligibility', { error });
       throw new Error(`Failed to check eligibility: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -148,24 +148,20 @@ const _checkEligibility = async (addresses: string[]): Promise<AddressEligibilit
   logger.info(`Eligibility check completed for ${addresses.length} addresses`);
   return results as AddressEligibility[];
 }
-const checkEligibilityMemoized = pMemoize(
-  async (addresses: string[]) => {
-    // Create a cache key for each individual address and check
-    const results = await Promise.all(
-      addresses.map(address => 
-        pMemoize(_checkEligibility, {
-          cache: halfDayCache,
-          cacheKey: () => `check-eligibility-${address.toLowerCase()}`
-        })([address])
-      )
-    );
-    return results.flat();
-  },
-  {
-    cache: halfDayCache,
-    cacheKey: () => 'batch' // Dummy key since real caching happens per-address
-  }
-);
+
+// const checkEligibilityMemoized = 
+//   async (addresses: string[]) => {
+//     // Create a cache key for each individual address and check
+//     const results = await Promise.all(
+//       addresses.map(address => 
+//         pMemoize(_checkEligibility, {
+//           cache: halfDayCache,
+//           cacheKey: () => `check-eligibility-${address.toLowerCase()}`
+//         })([address])
+//       )
+//     );
+//     return results.flat(); 
+//   }
 
 /**
  * Auto-assign points to addresses with less than threshold points (V2 Update)

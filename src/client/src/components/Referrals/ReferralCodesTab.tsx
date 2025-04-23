@@ -50,30 +50,6 @@ const ReferralCodesTab: React.FC<ReferralCodesTabProps> = ({ address }) => {
     }
   };
 
-  const handleGenerateCodes = async () => {
-    if (!userAddress) return;
-    
-    try {
-      setIsGenerating(true);
-      setError(null);
-      setSuccess(null);
-      
-      const response = await referralApi.generateCodes(userAddress);
-      
-      if (response.success) {
-        // Refresh codes
-        fetchCodes(userAddress);
-        setSuccess(`Successfully generated ${response.codes.length} new code(s).`);
-      } else {
-        setError('Failed to generate new codes');
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred generating codes');
-    } finally {
-      setIsGenerating(false);
-    }
-  };
-
   const copyToClipboard = (code: string) => {
     navigator.clipboard.writeText(code)
       .then(() => {
@@ -138,7 +114,7 @@ const ReferralCodesTab: React.FC<ReferralCodesTabProps> = ({ address }) => {
               <h4 className="text-base font-medium text-gray-800 mb-2">Your Unused Referral Codes</h4>
               
               {unusedCodes.length === 0 ? (
-                <p className="text-gray-500">No available codes found. Generate new ones below.</p>
+                <p className="text-gray-500">No available codes.</p>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                   {unusedCodes.map((code, idx) => (
@@ -157,16 +133,6 @@ const ReferralCodesTab: React.FC<ReferralCodesTabProps> = ({ address }) => {
                   ))}
                 </div>
               )}
-            </div>
-            
-            <div className="mt-6">
-              <button
-                onClick={handleGenerateCodes}
-                disabled={isGenerating || !userAddress}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
-              >
-                {isGenerating ? 'Generating...' : 'Generate New Codes'}
-              </button>
             </div>
           </>
         )}

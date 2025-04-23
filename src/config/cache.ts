@@ -1,5 +1,4 @@
 import ExpiryMap from "expiry-map";
 
-const HALF_DAY_IN_MS = 43200000;
-
-export const halfDayCache = new ExpiryMap(HALF_DAY_IN_MS);
+export const halfDayCache = new ExpiryMap(1000 * 60 * 60 * 12);
+export const oneWeekCache = new ExpiryMap(1000 * 60 * 60 * 24 * 7);

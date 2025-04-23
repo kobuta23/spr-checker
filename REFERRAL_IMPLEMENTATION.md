@@ -16,21 +16,20 @@ This document outlines the completed implementation of the referral system as sp
 
 ### Phase 2: Server-Side Extension
 - ✅ Added new routes to existing API structure
-- ✅ Implemented POST /api/add-referrer endpoint
 - ✅ Implemented POST /api/log-referral endpoint
 - ✅ Implemented GET /api/referrals and related endpoints
 - ✅ Implemented GET /api/referrals/codes/:address endpoint
 - ✅ Implemented POST /api/referrals/generate-codes/:address endpoint
 - ✅ Integrated with existing error handling patterns
 - ✅ Implemented caching mechanism using p-memoize
-- ✅ Implemented ranking system with SUP income thresholds
-- ✅ Defined max referrals per rank: Rank 1 (3), Rank 2 (5), Rank 3 (10), Rank 4 (20)
+- ✅ Implemented level system with SUP income thresholds
+- ✅ Defined max referrals per level: Level 1 (3), Level 2 (5), Level 3 (10), Level 4 (20)
 - ✅ Created one-time-use code generation and validation logic
 - ✅ Implemented SUPincome calculations and sorting
 - ✅ Added blockchain integration for SUP income updates
 - ✅ Set up Discord integration using existing app secrets
 - ✅ Implemented formatted leaderboard post generation
-- ✅ Added rank emojis and referral count information (e.g., 3/10)
+- ✅ Added level emojis and referral count information (e.g., 3/10)
 - ✅ Added update triggers on data changes
 - ✅ Implemented Discord slash commands
 - ✅ Added rich embeds for better visualization
@@ -41,7 +40,7 @@ This document outlines the completed implementation of the referral system as sp
 - ✅ Updated navigation to include referrals section
 - ✅ Ensured consistent navigation patterns with the existing app
 - ✅ Created ReferralLeaderboard component (as LeaderboardTab)
-- ✅ Created LeaderboardEntry component with rank display support
+- ✅ Created LeaderboardEntry component with level display support
 - ✅ Created ReferredUsersList component
 - ✅ Created RefreshButton component
 - ✅ Created ReferralCodes component
@@ -64,8 +63,8 @@ This document outlines the completed implementation of the referral system as sp
 - ✅ Added code generation/retrieval functionality
 - ✅ Implemented multi-select with visual indicators
 - ✅ Added proper error states and empty states
-- ✅ Created UI elements to display user ranks with appropriate emojis
-- ✅ Added current/maximum referral count based on rank
+- ✅ Created UI elements to display user levels with appropriate emojis
+- ✅ Added current/maximum referral count based on level
 - ✅ Implemented referral limit validation
 - ✅ Sorted leaderboard by referrals' total SUP income
 - ✅ Added display for both user's SUP income and referrals' SUP income

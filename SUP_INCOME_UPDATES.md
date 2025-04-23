@@ -4,7 +4,7 @@ This document outlines how the SUP Income Update system works in the referral ap
 
 ## Overview
 
-The SUP (Superfluid Token) income update system is responsible for tracking and updating the flow rates of SUP tokens for referrers and their referrals. This data is used to determine referrer ranks, calculate rewards, and display information on the leaderboard.
+The SUP (Superfluid Token) income update system is responsible for tracking and updating the flow rates of SUP tokens for referrers and their referrals. This data is used to determine referrer levels, calculate rewards, and display information on the leaderboard.
 
 ## Components
 
@@ -24,7 +24,7 @@ The `ReferralService` module contains functions to manage SUP income data:
 - **fetchSUPIncomeFromBlockchain**: Retrieves the current SUP income for a specific address from the blockchain
 - **updateAllSUPIncomes**: Updates SUP income for all referrers and their referrals
 - **refreshReferrerData**: Refreshes data for a specific referrer, including their SUP income
-- **determineRank**: Calculates a referrer's rank and maximum referrals based on their SUP income
+- **determineLevel**: Calculates a referrer's level and maximum referrals based on their SUP income
 
 ### 3. API Endpoints
 
@@ -58,7 +58,7 @@ Example:
   "address": "0x1234567890123456789012345678901234567890",
   "username": "crypto_whale",
   "SUPincome": "923456789012345", // Personal SUP income
-  "rank": 4,
+  "level": 4,
   "maxReferrals": 20,
   "referrals": [
     {
@@ -69,20 +69,20 @@ Example:
 }
 ```
 
-## Rank Thresholds
+## Level Thresholds
 
-Referrer ranks are determined based on SUP income thresholds:
+Referrer levels are determined based on SUP income thresholds:
 
-- Rank 4: ≥ 0.0008 SUP/s (800,000,000,000,000 wei/s)
-- Rank 3: ≥ 0.0006 SUP/s (600,000,000,000,000 wei/s)
-- Rank 2: ≥ 0.0003 SUP/s (300,000,000,000,000 wei/s)
-- Rank 1: ≥ 0 SUP/s
+- Level 4: ≥ 0.0008 SUP/s (800,000,000,000,000 wei/s)
+- Level 3: ≥ 0.0006 SUP/s (600,000,000,000,000 wei/s)
+- Level 2: ≥ 0.0003 SUP/s (300,000,000,000,000 wei/s)
+- Level 1: ≥ 0 SUP/s
 
-Each rank has a corresponding maximum number of referrals:
-- Rank 4: 20 referrals
-- Rank 3: 10 referrals
-- Rank 2: 5 referrals
-- Rank 1: 3 referrals
+Each level has a corresponding maximum number of referrals:
+- Level 4: 20 referrals
+- Level 3: 10 referrals
+- Level 2: 5 referrals
+- Level 1: 3 referrals
 
 ## Flow Calculation
 
@@ -173,16 +173,16 @@ SUP income updates occur through several mechanisms:
 3. Manual batch update via the admin panel using `/api/referrals/update-sup-income`
 4. Automatic updates triggered by certain events (e.g., new referral registration)
 
-## Ranking System
+## Leveling System
 
-The SUP income values obtained from the eligibility API are used to determine user ranks:
+The SUP income values obtained from the eligibility API are used to determine user levels:
 
-- Rank 1: 0 SUP/s (3 max referrals)
-- Rank 2: 0.0003 SUP/s (5 max referrals)
-- Rank 3: 0.0006 SUP/s (10 max referrals)
-- Rank 4: 0.0008 SUP/s (20 max referrals)
+- Level 1: 0 SUP/s (3 max referrals)
+- Level 2: 0.0003 SUP/s (5 max referrals)
+- Level 3: 0.0006 SUP/s (10 max referrals)
+- Level 4: 0.0008 SUP/s (20 max referrals)
 
-The rank determines how many referrals a user can have and is updated whenever the SUP income is refreshed.
+The level determines how many referrals a user can have and is updated whenever the SUP income is refreshed.
 
 ## Configuration
 

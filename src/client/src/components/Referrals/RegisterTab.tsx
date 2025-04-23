@@ -10,7 +10,7 @@ const RegisterTab: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [referralCodes, setReferralCodes] = useState<string[]>([]);
-  const [rank, setRank] = useState<number | null>(null);
+  const [level, setLevel] = useState<number | null>(null);
   const [maxReferrals, setMaxReferrals] = useState<number | null>(null);
 
   // Handle form submission
@@ -34,7 +34,7 @@ const RegisterTab: React.FC = () => {
       setError(null);
       setSuccessMessage(null);
       setReferralCodes([]);
-      setRank(null);
+      setLevel(null);
       setMaxReferrals(null);
       
       const response = await referralApi.addReferrer({
@@ -45,7 +45,7 @@ const RegisterTab: React.FC = () => {
       if (response.success && response.codes) {
         setSuccessMessage('You have been successfully registered as a referrer!');
         setReferralCodes(response.codes);
-        setRank(response.rank || 1);
+        setLevel(response.level || 1);
         setMaxReferrals(response.maxReferrals || 3);
         
         // Clear form
@@ -90,9 +90,9 @@ const RegisterTab: React.FC = () => {
               <div className="ml-3">
                 <p className="text-sm font-medium text-green-800">{successMessage}</p>
                 
-                {rank !== null && maxReferrals !== null && (
+                {level !== null && maxReferrals !== null && (
                   <p className="mt-2 text-sm text-green-700">
-                    You are now a Rank {rank} referrer with a maximum of {maxReferrals} referrals.
+                    You are now a Level {level} referrer with a maximum of {maxReferrals} referrals.
                   </p>
                 )}
                 
