@@ -23,13 +23,14 @@ router.post('/log-referral', (async (req: Request, res: Response, next: NextFunc
     }
 
     const result = await referralService.logReferral(
-    referralAddress, 
-    referralCode
+      referralAddress, 
+      referralCode
     );
     
-    logger.info(`Logged new referral: ${referralAddress} with code ${referralCode}`);
-    logger.slackNotify(`Logged new referral: ${referralAddress} with code ${referralCode}`, 'info');
-    logger.discordNotify(`Logged new referral: ${referralAddress} with code ${referralCode}`, 'info');
+    const msg = `New referral (${referralAddress}) from user ${result.referrer?.username} | ${result.referrer?.address}`;
+    logger.info(msg);
+    logger.slackNotify(msg, 'info');
+    logger.discordNotify(msg, 'info');
     // Update Discord leaderboard
     try {
       logger.info('Updating Discord leaderboard');
@@ -43,7 +44,7 @@ router.post('/log-referral', (async (req: Request, res: Response, next: NextFunc
       // Don't fail the request if Discord update fails
     }
     
-    res.status(201).json(result);
+    res.status(201).json({ success: true });
   } catch (error: any) {
     logger.error('Error logging referral', { error: error.message });
     

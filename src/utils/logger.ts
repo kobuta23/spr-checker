@@ -62,9 +62,9 @@ interface ExtendedLogger extends winston.Logger {
   // Log with Winston
   logger.log(level, message);
   // Send to Discord if webhook is configured
-  if (process.env.DISCORD_WEBHOOK_ADMIN_CHANNEL) {
+  if (process.env.DISCORD_WEBHOOK_LOGS_CHANNEL) {
     try {
-      await axios.post(process.env.DISCORD_WEBHOOK_ADMIN_CHANNEL, {
+      await axios.post(process.env.DISCORD_WEBHOOK_LOGS_CHANNEL, {
         content: message
       });
     } catch (error) {

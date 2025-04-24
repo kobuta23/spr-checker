@@ -16,6 +16,7 @@ import * as fs from 'fs';
 import stackApiService from './services/stack/stackApiService';
 import imageProxyRouter from './routes/imageProxy';
 import referralRoutes from './routes/referralRoutes';
+import authRoutes from './routes/authRoutes';
 import { getRecipients, getHighLevelStats, getStoredRecipients } from './utils/UBARecipients';
 import { memoizedFetchSuperfluidProfile } from './services/profileService';
 import discordService from './services/discord';
@@ -161,6 +162,15 @@ app.get('/stack-activity', async (req: express.Request, res: express.Response) =
  */
 console.log("Registering referral routes");
 app.use('/api/referrals', referralRoutes);
+
+/**
+ * Route Group: /api/auth
+ * Description: Handles authentication operations
+ * Router: authRoutes
+ * For detailed endpoint information, refer to the authRoutes implementation
+ */
+console.log("Registering auth routes");
+app.use('/api/auth', authRoutes);
 
 // Add this after your API routes
 // Serve static files from the React app
