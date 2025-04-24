@@ -1,11 +1,15 @@
 import PageHeader from './components/PageHeader'
 import AddressManager from './components/AddressManager'
-import { useSearchParams, Routes, Route, Link, useLocation } from 'react-router-dom'
+import { useSearchParams, Routes, Route, Link, useLocation, Navigate } from 'react-router-dom'
 import ReferralsPage from './components/Referrals/ReferralsPage'
+import LoginPage from './components/Auth/LoginPage'
+import ProtectedRoute from './components/Auth/ProtectedRoute'
+import { useAuth } from './utils/authContext'
 
 function App() {
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
+  const { isAuthenticated, logout } = useAuth();
   
   // Get initial addresses from URL if available
   const getInitialAddresses = () => {
@@ -34,40 +38,65 @@ function App() {
     }`;
   };
 
+  // Handle logout
+  const handleLogout = () => {
+    logout();
+    // No need to navigate - ProtectedRoute will handle redirection
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6">
       <div className="w-full mx-auto">
-        <div className="flex justify-center mb-8">
-          <nav className="flex space-x-4 bg-white shadow-sm rounded-lg p-1">
-            <Link 
-              to="/" 
-              className={getNavLinkClass('/')}
+        {isAuthenticated && (
+          <div className="flex justify-between items-center mb-8">
+            <nav className="flex space-x-4 bg-white shadow-sm rounded-lg p-1">
+              <Link 
+                to="/" 
+                className={getNavLinkClass('/')}
+              >
+                Flowrate Checker
+              </Link>
+              <Link 
+                to="/referrals" 
+                className={getNavLinkClass('/referrals')}
+              >
+                Referral Program
+              </Link>
+            </nav>
+            <button
+              onClick={handleLogout}
+              className="px-4 py-2 text-sm font-medium rounded-md bg-red-100 text-red-700 hover:bg-red-200 transition-colors"
             >
-              Flowrate Checker
-            </Link>
-            <Link 
-              to="/referrals" 
-              className={getNavLinkClass('/referrals')}
-            >
-              Referral Program
-            </Link>
-          </nav>
-        </div>
+              Logout
+            </button>
+          </div>
+        )}
 
         <Routes>
-          <Route path="/" element={
-            <>
-              <PageHeader 
-                title="Superfluid Flowrate Checker" 
-                subtitle="Check and compare SUP allocations for multiple addresses" 
-              />
-              <AddressManager 
-                initialAddresses={getInitialAddresses()}
-                onAddressesChange={handleAddressesChange}
-              />
-            </>
+          {/* Public route - Login */}
+          <Route path="/login" element={
+            isAuthenticated ? <Navigate to="/" replace /> : <LoginPage />
           } />
-          <Route path="/referrals" element={<ReferralsPage />} />
+
+          {/* Protected routes */}
+          <Route element={<ProtectedRoute />}>
+            <Route path="/" element={
+              <>
+                <PageHeader 
+                  title="Superfluid Flowrate Checker" 
+                  subtitle="Check and compare SUP allocations for multiple addresses" 
+                />
+                <AddressManager 
+                  initialAddresses={getInitialAddresses()}
+                  onAddressesChange={handleAddressesChange}
+                />
+              </>
+            } />
+            <Route path="/referrals" element={<ReferralsPage />} />
+          </Route>
+
+          {/* Catch-all redirect to login */}
+          <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       </div>
     </div>
