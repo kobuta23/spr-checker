@@ -354,6 +354,7 @@ const logReferral = async (
     SUPincome: "0"
   });
   
+  await eligibilityService.checkEligibility([referralAddress]);
   // Save changes
   await writeReferrersData(referrers);
   
@@ -450,7 +451,7 @@ const updateAllSUPIncomes = async (): Promise<void> => {
       updatedReferrers[i].SUPincome = referrerSUPIncome;
       
       // Update level and max referrals based on new income
-      const { level, maxReferrals } = determineLevel(referrerSUPIncome);
+      const { level, maxReferrals } = determineLevel(referrerSUPIncome + referrer.referrals.reduce((sum, referral) => sum + BigInt(referral.SUPincome), BigInt(0)));
       updatedReferrers[i].level = level;
       updatedReferrers[i].maxReferrals = maxReferrals;
       
