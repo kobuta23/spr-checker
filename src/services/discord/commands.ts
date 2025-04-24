@@ -15,7 +15,7 @@ import * as authService from "../authService";
 import { generateUILink } from "../../utils/authUtils";
 
 // Configuration for admin channel
-const ADMIN_CHANNEL_ID = process.env.DISCORD_ADMIN_CHANNEL_ID || '';
+const ADMIN_CHANNEL_ID = process.env.DISCORD_CHANNEL_ID_ADMIN || '';
 
 type Command = {
   data: SlashCommandBuilder | SlashCommandOptionsOnlyBuilder;
