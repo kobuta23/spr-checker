@@ -161,7 +161,8 @@ const registerCommands = async (): Promise<void> => {
     console.info("registeredCommands: ", registeredCommands?.map(command => command.name));
 
     logger.info('Successfully registered Discord slash commands');
-    
+    logger.discordNotify('Successfully registered Discord slash commands');
+    logger.discordNotify(registeredCommands?.map(command => command.name).join(', '));
     // Set up interaction handler for the commands
     discordClient.on('interactionCreate', async interaction => {
       if (!interaction.isChatInputCommand()) return;
