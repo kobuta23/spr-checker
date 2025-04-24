@@ -9,8 +9,8 @@ dotenv.config();
 
 // Check for required environment variables
 const TOKEN = process.env.DISCORD_BOT_TOKEN;
-const CLIENT_ID = discordClient.user?.id;
-const GUILD_ID = process.env.DISCORD_GUILD_ID; // Only needed for guild commands
+const CLIENT_ID = discordClient.user?.id || '';
+const GUILD_ID = process.env.DISCORD_GUILD_ID || ''; // Only needed for guild commands
 
 if (!TOKEN || !CLIENT_ID) {
   logger.error('Missing required environment variables: DISCORD_BOT_TOKEN, DISCORD_CLIENT_ID');
