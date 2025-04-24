@@ -29,7 +29,7 @@ router.post('/log-referral', (async (req: Request, res: Response, next: NextFunc
     
     logger.info(`Logged new referral: ${referralAddress} with code ${referralCode}`);
     logger.slackNotify(`Logged new referral: ${referralAddress} with code ${referralCode}`, 'info');
-    
+    logger.discordNotify(`Logged new referral: ${referralAddress} with code ${referralCode}`, 'info');
     // Update Discord leaderboard
     try {
       logger.info('Updating Discord leaderboard');

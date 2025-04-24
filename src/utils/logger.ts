@@ -1,6 +1,7 @@
 import winston from 'winston';
 import { IncomingWebhook } from '@slack/webhook';
 import config from '../config';
+import axios from 'axios';
 
 // Create Slack webhook instance if URL is provided
 const slackWebhook = config.slackWebhookUrl 
@@ -30,6 +31,7 @@ const logger = winston.createLogger({
 // Extend logger with Slack notification method
 interface ExtendedLogger extends winston.Logger {
   slackNotify: (message: string, level?: string) => Promise<void>;
+  discordNotify: (message: string, level?: string) => Promise<void>;
 }
 
 (logger as ExtendedLogger).slackNotify = async (message: string, level = 'info') => {
@@ -55,5 +57,21 @@ interface ExtendedLogger extends winston.Logger {
     }
   }
 };
+
+(logger as ExtendedLogger).discordNotify = async (message: string, level = 'info') => {
+  // Log with Winston
+  logger.log(level, message);
+  // Send to Discord if webhook is configured
+  if (process.env.DISCORD_WEBHOOK_ADMIN_CHANNEL) {
+    try {
+      await axios.post(process.env.DISCORD_WEBHOOK_ADMIN_CHANNEL, {
+        content: message
+      });
+    } catch (error) {
+      logger.error('Failed to send message to Discord', { error });
+    }
+  }
+};
+
 
 export default logger as ExtendedLogger; 

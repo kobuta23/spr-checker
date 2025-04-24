@@ -46,6 +46,25 @@ const MAX_REFERRALS_BY_LEVEL = {
 };
 
 /**
+ * Add this initialization function near the top of the file
+ */
+const initializeDataFile = async (): Promise<void> => {
+  const dataDir = path.join(process.cwd(), 'data');
+  
+  // Check if data directory exists, create if not
+  if (!fs.existsSync(dataDir)) {
+    await fs.promises.mkdir(dataDir, { recursive: true });
+    logger.info(`Created data directory at ${dataDir}`);
+  }
+  
+  // Check if referrals.json exists, create empty array if not
+  if (!fs.existsSync(DATA_FILE_PATH)) {
+    await fs.promises.writeFile(DATA_FILE_PATH, JSON.stringify([], null, 2), 'utf8');
+    logger.info(`Created empty referrals file at ${DATA_FILE_PATH}`);
+  }
+};
+
+/**
  * Determine level and max referrals based on SUP income
  */
 const determineLevel = (SUPincome: string): { level: number; maxReferrals: number } => {
@@ -626,7 +645,7 @@ const getEnrichedReferrerData = (referrer: Referrer) => {
     referrals: sortedReferrals
   };
 };
-
+initializeDataFile()
 // Export all the functions that should be available to other modules
 export {
   getAllReferrers,
