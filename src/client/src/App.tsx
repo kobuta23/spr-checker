@@ -1,15 +1,40 @@
 import PageHeader from './components/PageHeader'
 import AddressManager from './components/AddressManager'
-import { useSearchParams, Routes, Route, Link, useLocation, Navigate } from 'react-router-dom'
+import { useSearchParams, Routes, Route, Link, useLocation, Navigate, useNavigate } from 'react-router-dom'
 import ReferralsPage from './components/Referrals/ReferralsPage'
 import LoginPage from './components/Auth/LoginPage'
 import ProtectedRoute from './components/Auth/ProtectedRoute'
 import { useAuth } from './utils/authContext'
+import { useEffect } from 'react'
 
 function App() {
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
-  const { isAuthenticated, logout } = useAuth();
+  const navigate = useNavigate();
+  const { isAuthenticated, logout, login, loading } = useAuth();
+  
+  // Handle deep links with authentication code
+  useEffect(() => {
+    const handleDeepLink = async () => {
+      const authCode = searchParams.get('code');
+      console.log("App: Checking for auth code in URL:", authCode);
+      
+      if (authCode && !isAuthenticated && !loading) {
+        console.log("App: Found auth code in URL, attempting login");
+        try {
+          // If we're not on the login page, navigate there with the code
+          if (location.pathname !== '/login') {
+            console.log("App: Redirecting to login page with code");
+            navigate(`/login?code=${authCode}`);
+          }
+        } catch (error) {
+          console.error("App: Error handling deep link:", error);
+        }
+      }
+    };
+    
+    handleDeepLink();
+  }, [searchParams, isAuthenticated, loading, location.pathname, navigate]);
   
   // Get initial addresses from URL if available
   const getInitialAddresses = () => {

@@ -37,8 +37,21 @@ export const generateUILink = (authCode: string): string => {
   // Create URL object for proper encoding
   const url = new URL(UI_BASE_URL);
   
+  // Specifically route to the login page if it exists
+  // This ensures the auth code is handled properly
+  if (!url.pathname.endsWith('/login')) {
+    // If URL already has a trailing slash, add 'login'
+    // Otherwise add '/login'
+    url.pathname = url.pathname.endsWith('/') 
+      ? `${url.pathname}login` 
+      : `${url.pathname}/login`;
+  }
+  
   // Add the code as a query parameter
   url.searchParams.append('code', authCode);
+  
+  // Log the generated URL for debugging
+  console.log(`Generated auth link: ${url.toString()}`);
   
   // Return the formatted URL as a string
   return url.toString();

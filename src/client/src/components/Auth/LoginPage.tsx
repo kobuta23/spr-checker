@@ -11,9 +11,15 @@ const LoginPage: React.FC = () => {
 
   // Check for auth code in URL parameters on component mount
   useEffect(() => {
+    console.log("LoginPage mounted - checking for auth code");
+    console.log("URL search params:", Object.fromEntries(searchParams.entries()));
+    
     const authCode = searchParams.get('code');
+    console.log("Auth code from URL:", authCode);
+    
     if (authCode) {
       setCode(authCode);
+      console.log("Auth code found, attempting login");
       handleLogin(authCode);
     }
   }, [searchParams]);
@@ -21,6 +27,7 @@ const LoginPage: React.FC = () => {
   // Redirect to home if authenticated
   useEffect(() => {
     if (isAuthenticated && !loading) {
+      console.log("User is authenticated, redirecting to home");
       navigate('/');
     }
   }, [isAuthenticated, loading, navigate]);
@@ -28,20 +35,27 @@ const LoginPage: React.FC = () => {
   // Handle login form submission
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    console.log("Form submitted with code:", code);
     handleLogin(code);
   };
 
   // Handle login logic
   const handleLogin = async (authCode: string) => {
-    if (!authCode.trim()) return;
+    if (!authCode.trim()) {
+      console.log("Empty auth code, not attempting login");
+      return;
+    }
     
+    console.log("Attempting login with code:", authCode);
     setIsSubmitting(true);
     await login(authCode);
     setIsSubmitting(false);
+    console.log("Login attempt completed");
   };
 
   // If still checking authentication status, show loading
   if (loading && !error) {
+    console.log("Showing loading spinner");
     return (
       <div className="flex justify-center items-center min-h-[60vh]">
         <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
