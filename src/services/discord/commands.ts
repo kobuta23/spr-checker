@@ -60,7 +60,7 @@ export const commands: Command[] = [
     },
     {
       data: new SlashCommandBuilder()
-        .setName('admin-signup')
+        .setName('signup-admin')
         .setDescription('Register as an admin')
         .setContexts(InteractionContextType.Guild)
         // Admin command requires permission to kick members (moderator level+)
