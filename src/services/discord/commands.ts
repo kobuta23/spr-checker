@@ -1,23 +1,22 @@
 import { 
-  CommandInteraction, 
-  ApplicationCommandOptionType,
   ChatInputCommandInteraction,
   SlashCommandBuilder,
   SlashCommandOptionsOnlyBuilder,
   InteractionContextType,
   PermissionFlagsBits,
   EmbedBuilder,
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle
 } from "discord.js";
 import { Referrer } from "../referralService"; // just the type, not the service
 import logger from "../../utils/logger";
 import { createLeaderboardEmbed } from "./utils";
 import { MessageFlags } from "discord.js";
 import * as referralService from "../referralService";
+import * as authService from "../authService";
+import { generateUILink } from "../../utils/authUtils";
 
-// Command type should use ChatInputCommandInteraction for slash commands
+// Configuration for admin channel
+const ADMIN_CHANNEL_ID = process.env.DISCORD_ADMIN_CHANNEL_ID || '';
+
 type Command = {
   data: SlashCommandBuilder | SlashCommandOptionsOnlyBuilder;
   function: (interaction: ChatInputCommandInteraction) => Promise<void>;
@@ -59,6 +58,15 @@ export const commands: Command[] = [
             .setRequired(true)
         ),
       function: signUp
+    },
+    {
+      data: new SlashCommandBuilder()
+        .setName('admin')
+        .setDescription('Get admin access to the UI')
+        .setContexts(InteractionContextType.Guild)
+        // Admin command requires permission to kick members (moderator level+)
+        .setDefaultMemberPermissions(PermissionFlagsBits.KickMembers),
+      function: adminAccess
     }
 ];
 
@@ -200,5 +208,57 @@ async function signUp(interaction: ChatInputCommandInteraction): Promise<void> {
     await interaction.followUp({ content: 'You can now use the `/get-codes` command to get your referral codes.', ephemeral: true });
   } else {
     await interaction.editReply('Failed to register address.');
+  }
+}
+
+/**
+ * Handle the /admin command to generate UI access
+ */
+async function adminAccess(interaction: ChatInputCommandInteraction): Promise<void> {
+  // Make the response ephemeral (only visible to the user who invoked the command)
+  await interaction.deferReply({ ephemeral: true });
+  
+  // Check if the command is being used in the admin channel
+  if (ADMIN_CHANNEL_ID && interaction.channelId !== ADMIN_CHANNEL_ID) {
+    await interaction.editReply('This command can only be used in the referral admin channel.');
+    logger.discordNotify(`User ${interaction.user.username} (${interaction.user.id}) attempted to use /admin command in unauthorized channel ${interaction.channelId}`);
+    return;
+  }
+  
+  try {
+    // Check if user is already registered as an admin
+    const isRegistered = await authService.isDiscordUserRegistered(interaction.user.id);
+    let admin;
+    
+    if (isRegistered) {
+      // Get existing admin data
+      admin = await authService.getAdminByDiscordId(interaction.user.id);
+      if (!admin) {
+        throw new Error('Failed to retrieve admin data');
+      }
+      
+      await interaction.editReply(`You are already registered as an admin. Creating a new auth code.`);
+      // delete the existing admin
+      await authService.removeAdmin(admin.discordId);
+    }
+    // Register as a new admin
+    admin = await authService.addAdmin(interaction.user.id, interaction.user.username);
+    await interaction.editReply(`You've been registered as an admin with access to the UI.`);
+
+    // Generate access link
+    const accessLink = generateUILink(admin.authCode);
+    
+    // Send the access link
+    await interaction.followUp({
+      content: `Here's your secure access link to the UI:\n${accessLink}\n\nThis link contains your personal access code. Do not share it with others.`,
+      ephemeral: true
+    });
+    
+    logger.info(`Admin access link generated for ${interaction.user.username} (${interaction.user.id})`);
+    logger.discordNotify(`Admin access link generated for ${interaction.user.username}`);
+  } catch (error) {
+    logger.error(`Error generating admin access for ${interaction.user.username} (${interaction.user.id})`, { error });
+    logger.discordNotify(`Error generating admin access for ${interaction.user.username} (${interaction.user.id})`);
+    await interaction.editReply('Failed to generate admin access. Please try again later or contact support.');
   }
 }

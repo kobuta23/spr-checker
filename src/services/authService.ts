@@ -126,6 +126,33 @@ const addAdmin = async (discordId: string, username: string): Promise<Admin> => 
 };
 
 /**
+ * Remove an admin by Discord ID
+ */
+const removeAdmin = async (discordId: string): Promise<void> => {
+  try {
+    // Get current admins
+    const admins = await getAllAdmins();
+    
+    // Filter out the admin to remove
+    const updatedAdmins = admins.filter(admin => admin.discordId !== discordId);
+    
+    // Check if an admin was actually removed
+    if (updatedAdmins.length === admins.length) {
+      throw new Error(`No admin found with Discord ID ${discordId}`);
+    }
+    
+    // Save updated admin list
+    await writeAdminsData(updatedAdmins);
+    
+    logger.info(`Removed admin with Discord ID: ${discordId}`);
+  } catch (error) {
+    logger.error(`Error removing admin with Discord ID ${discordId}`, { error });
+    throw error;
+  }
+};
+
+
+/**
  * Validate an auth code
  */
 const validateAuthCode = async (authCode: string): Promise<Admin | null> => {
@@ -158,5 +185,6 @@ export {
   isDiscordUserRegistered,
   addAdmin,
   validateAuthCode,
-  getAdminByDiscordId
+  getAdminByDiscordId,
+  removeAdmin
 }; 
