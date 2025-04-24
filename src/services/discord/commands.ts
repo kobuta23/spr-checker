@@ -8,7 +8,6 @@ import {
 } from "discord.js";
 import { Referrer } from "../referralService"; // just the type, not the service
 import logger from "../../utils/logger";
-import { createLeaderboardEmbed } from "./utils";
 import { MessageFlags } from "discord.js";
 import * as referralService from "../referralService";
 import * as authService from "../authService";
@@ -61,7 +60,7 @@ export const commands: Command[] = [
     },
     {
       data: new SlashCommandBuilder()
-        .setName('admin')
+        .setName('admin-signup')
         .setDescription('Get admin access to the UI')
         .setContexts(InteractionContextType.Guild)
         // Admin command requires permission to kick members (moderator level+)
