@@ -2,13 +2,14 @@ import { REST, Routes } from 'discord.js';
 import { commands } from './commands';
 import dotenv from 'dotenv';
 import logger from '../../utils/logger';
+import { discordClient } from './index';
 
 // Load environment variables
 dotenv.config();
 
 // Check for required environment variables
 const TOKEN = process.env.DISCORD_BOT_TOKEN;
-const CLIENT_ID = process.env.DISCORD_CLIENT_ID;
+const CLIENT_ID = discordClient.user?.id;
 const GUILD_ID = process.env.DISCORD_GUILD_ID; // Only needed for guild commands
 
 if (!TOKEN || !CLIENT_ID) {
