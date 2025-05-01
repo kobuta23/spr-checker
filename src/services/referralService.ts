@@ -56,7 +56,7 @@ const initializeDataFile = async (): Promise<void> => {
  * @param referrals Optional array of referrals with their income
  * @returns Object containing the calculated level and maxReferrals
  */
-const refreshLevel = (user: Referrer): Referrer => {
+const refreshLevel = async (user: Referrer): Promise<Referrer> => {
   // Sum up all referral incomes
   const totalReferralIncome = user.referrals.reduce(
     (sum, referral) => sum + BigInt(referral.SUPincome), 
@@ -276,7 +276,7 @@ const addReferrer = async (address: string, username: string, discordId: string)
   };
   
   // Default to level 1 for new referrers (can be refreshed later)
-  const { level, maxReferrals, unusedCodes } = refreshLevel(newReferrer);
+  const { level, maxReferrals, unusedCodes } = await refreshLevel(newReferrer);
   // Generate initial codes based on level  
   
   // Add to the list and save
@@ -443,7 +443,7 @@ const updateAllSUPIncomes = async (): Promise<void> => {
       updatedReferrers[i].SUPincome = referrerSUPIncome;
       
       // Update level and max referrals based on new income
-      const { level, maxReferrals } = refreshLevel(referrer);
+      const { level, maxReferrals } = await refreshLevel(referrer);
       updatedReferrers[i].level = level;
       updatedReferrers[i].maxReferrals = maxReferrals;
       
@@ -492,7 +492,7 @@ const refreshReferrerData = async (address: string): Promise<Referrer | null> =>
       referrers[referrerIndex].SUPincome = newSUPIncome;
       
       // Update level and maxReferrals based on new SUP income
-      const { level, maxReferrals } = refreshLevel(referrers[referrerIndex]);
+      const { level, maxReferrals } = await refreshLevel(referrers[referrerIndex]);
       referrers[referrerIndex].level = level;
       referrers[referrerIndex].maxReferrals = maxReferrals;
       
