@@ -1,13 +1,8 @@
 import { Referrer } from "../referralService";
 import { EmbedBuilder } from "discord.js";
 import { formatSUPIncome } from "../../utils/formatter";
-// LEVEL emojis
-const LEVEL_EMOJIS = {
-    1: '⭐', // Level 1: Star
-    2: '🥉', // Level 2: Bronze
-    3: '🥈', // Level 3: Silver
-    4: '🥇'  // Level 4: Gold
-  };
+import { LEVEL_EMOJIS, LEVEL_DESCRIPTIONS } from "../../config/levels";
+
 /**
  * Create a formatted embed for the leaderboard
  */
@@ -30,7 +25,7 @@ export const createLeaderboardEmbed = (referrers: Referrer[]): EmbedBuilder => {
       const totalSUPincome = referrer.referrals.reduce(
         (sum, referral) => sum + BigInt(referral.SUPincome), 
         BigInt(0)
-      );
+      ) + BigInt(referrer.SUPincome);
       
       // Format the username to fixed width
       const username = referrer.username.length > 15 
@@ -62,7 +57,10 @@ export const createLeaderboardEmbed = (referrers: Referrer[]): EmbedBuilder => {
     // Add legend for level emojis
     embed.addFields({ 
       name: 'Level System',
-      value: `${LEVEL_EMOJIS[4]} Level 4: 20 max referrals\n${LEVEL_EMOJIS[3]} Level 3: 10 max referrals\n${LEVEL_EMOJIS[2]} Level 2: 5 max referrals\n${LEVEL_EMOJIS[1]} Level 1: 3 max referrals`,
+      value: [4, 3, 2, 1].map(level => 
+        // @ts-ignore
+        `${LEVEL_EMOJIS[level]} ${LEVEL_DESCRIPTIONS[level]}`
+      ).join('\n'),
       inline: false
     });
     

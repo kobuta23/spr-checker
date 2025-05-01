@@ -91,13 +91,13 @@ class StackApiService {
     try {
       const url = `https://track.stack.so/event`;
       // ${this.baseUrl}/point-system/${pointSystemId}/assign`;
-      
+      const uniqueId = `${eventName.toLowerCase().replace(/_/g, '-')}-${address.toLowerCase()}`;
       logger.info(`Assigning ${points} points to ${address} in point system ${COMMUNITY_ACTIVATION_ID}`);
       const data = [{
         "name": eventName,
         "account": address.toLowerCase(),
         "pointSystemId": COMMUNITY_ACTIVATION_ID,
-        "uniqueId": `universal-allocation-${address.toLowerCase()}`, // make up a unique id for the allocation
+        "uniqueId": uniqueId,
         "points": points
       }]
       const response = await axios.post(url, 
@@ -111,12 +111,17 @@ class StackApiService {
       );
 
       if (response.status >= 200 && response.status < 300) {
-        logger.info(`Successfully assigned ${points} points to ${address}`);
-        // add recipient to UBARecipients list
-        addRecipient({ address });
-        const recipients = getStoredRecipients();
-        const lastHour = latestRecipients(THRESHOLD_TIME_PERIOD).length;
-        logger.slackNotify(`Gave points to ${address} and added ${address} to recipients list. ${recipients.length} recipients in list. ${lastHour} in the last hour `);
+        if (eventName === "universal_allocation") {
+          // add recipient to UBARecipients list
+          addRecipient({ address });
+          const recipients = getStoredRecipients();
+          const lastHour = latestRecipients(THRESHOLD_TIME_PERIOD).length;
+          logger.slackNotify(`Successfully assigned ${points} points to ${address} and added ${address} to recipients list. ${recipients.length} recipients in list. ${lastHour} in the last hour `);
+        } else if (eventName.includes("completed_level")) {
+          logger.slackNotify(`Successfully assigned ${points} points to ${address} for "${eventName.replace(/_/g, ' ')}"`);
+        } else if (eventName === "referral_reward") {
+          logger.slackNotify(`Successfully assigned ${points} points to ${address} for "${eventName.replace(/_/g, ' ')}"`);
+        }
         return true;
       } else {
         logger.error(`Failed to assign points, received status ${response.status}`);

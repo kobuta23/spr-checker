@@ -24,7 +24,7 @@ The `ReferralService` module contains functions to manage SUP income data:
 - **fetchSUPIncomeFromBlockchain**: Retrieves the current SUP income for a specific address from the blockchain
 - **updateAllSUPIncomes**: Updates SUP income for all referrers and their referrals
 - **refreshReferrerData**: Refreshes data for a specific referrer, including their SUP income
-- **determineLevel**: Calculates a referrer's level and maximum referrals based on their SUP income
+- **refreshLevel**: Calculates a referrer's level and maximum referrals based on their total SUP income (user's own income + sum of all referrals' income)
 
 ### 3. API Endpoints
 
@@ -71,7 +71,7 @@ Example:
 
 ## Level Thresholds
 
-Referrer levels are determined based on SUP income thresholds:
+Referrer levels are determined based on total SUP income thresholds (user's own income + the income of all their referrals):
 
 - Level 4: ≥ 0.0008 SUP/s (800,000,000,000,000 wei/s)
 - Level 3: ≥ 0.0006 SUP/s (600,000,000,000,000 wei/s)
@@ -175,8 +175,11 @@ SUP income updates occur through several mechanisms:
 
 ## Leveling System
 
-The SUP income values obtained from the eligibility API are used to determine user levels:
+The SUP income values obtained from the eligibility API are used to determine user levels. The level is based on the total income, which is the sum of:
+1. The user's own SUP income
+2. The combined SUP income of all their referrals
 
+The level thresholds are:
 - Level 1: 0 SUP/s (3 max referrals)
 - Level 2: 0.0003 SUP/s (5 max referrals)
 - Level 3: 0.0006 SUP/s (10 max referrals)

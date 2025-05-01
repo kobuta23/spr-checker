@@ -8,6 +8,8 @@ import blockchainService from './blockchain/blockchainService';
 import axios from 'axios';
 import eligibilityService from './eligibilityService';
 import * as discordService from './discord';
+import { LEVEL_THRESHOLDS, MAX_REFERRALS_BY_LEVEL, Levels, REWARDS_FOR_LEVEL_UP, REFERRAL_REWARD } from '../config/levels';
+import stackApiService from './stack/stackApiService';
 
 // Types
 interface Referral {
@@ -20,7 +22,7 @@ export interface Referrer {
   username: string;
   discordId: string;
   SUPincome: string;
-  level: number;
+  level: Levels;
   maxReferrals: number;
   unusedCodes: string[];
   referrals: Referral[];
@@ -28,22 +30,6 @@ export interface Referrer {
 
 // Path to the JSON data file
 const DATA_FILE_PATH = path.join(process.cwd(), 'data', 'referrals.json');
-
-// SUP income thresholds for levels (in wei/s)
-const LEVEL_THRESHOLDS = {
-  LEVEL_4: BigInt("800000000000000"), // Highest level      
-  LEVEL_3: BigInt("600000000000000"),
-  LEVEL_2: BigInt("300000000000000"),
-  LEVEL_1: BigInt("0")                // Lowest level
-};
-
-// Max referrals per level
-const MAX_REFERRALS_BY_LEVEL = {
-  4: 20, // Level 4: 20 max referrals
-  3: 10, // Level 3: 10 max referrals
-  2: 5,  // Level 2: 5 max referrals
-  1: 3   // Level 1: 3 max referrals
-};
 
 /**
  * Add this initialization function near the top of the file
@@ -65,20 +51,30 @@ const initializeDataFile = async (): Promise<void> => {
 };
 
 /**
- * Determine level and max referrals based on SUP income
+ * Determine level and max referrals based on total SUP income (user + referrals)
+ * @param userIncome The user's own SUP income as a string
+ * @param referrals Optional array of referrals with their income
+ * @returns Object containing the calculated level and maxReferrals
  */
-const determineLevel = (SUPincome: string): { level: number; maxReferrals: number } => {
-  const income = BigInt(SUPincome);
+const refreshLevel = (user: Referrer): Referrer => {
+  // Sum up all referral incomes
+  const totalReferralIncome = user.referrals.reduce(
+    (sum, referral) => sum + BigInt(referral.SUPincome), 
+    BigInt(0)
+  );
   
-  if (income >= LEVEL_THRESHOLDS.LEVEL_4) {
-    return { level: 4, maxReferrals: MAX_REFERRALS_BY_LEVEL[4] };
-  } else if (income >= LEVEL_THRESHOLDS.LEVEL_3) {
-    return { level: 3, maxReferrals: MAX_REFERRALS_BY_LEVEL[3] };
-  } else if (income >= LEVEL_THRESHOLDS.LEVEL_2) {
-    return { level: 2, maxReferrals: MAX_REFERRALS_BY_LEVEL[2] };
-  } else {
-    return { level: 1, maxReferrals: MAX_REFERRALS_BY_LEVEL[1] };
+  // Total income is user's income plus all referral income
+  const totalIncome = BigInt(user.SUPincome) + totalReferralIncome;
+  let newLevel: Levels = totalIncome >= LEVEL_THRESHOLDS[4] ? 4 : totalIncome >= LEVEL_THRESHOLDS[3] ? 3 : totalIncome >= LEVEL_THRESHOLDS[2] ? 2 : 1;
+  let newMaxReferrals = MAX_REFERRALS_BY_LEVEL[newLevel];
+  const {codes} = await refreshCodes(user);
+  if (newLevel > user.level) {
+    for (let i = user.level; i < newLevel; i++) {
+      stackApiService.assignPoints(user.address, REWARDS_FOR_LEVEL_UP[i], `completed_level_${i}`);
+    }
   }
+  // assign the level and max referrals to the user
+  return {...user, level: newLevel, maxReferrals: newMaxReferrals, unusedCodes: codes };
 };
 
 /**
@@ -267,24 +263,21 @@ const addReferrer = async (address: string, username: string, discordId: string)
   if (referrers.some(r => r.username.toLowerCase() === username.toLowerCase())) {
     throw new Error('Username already taken');
   }
-  
-  // Default to level 1 for new referrers (can be refreshed later)
-  const { level, maxReferrals } = determineLevel("0");
-  
-  // Generate initial codes based on level
-  const codes = await generateCodes(maxReferrals, referrers);
-  
   // Create new referrer object
   const newReferrer: Referrer = {
     address,
     username,
     discordId,
     SUPincome: "0",
-    level,
-    maxReferrals,
-    unusedCodes: codes,
+    level: 1,
+    maxReferrals: 3 ,
+    unusedCodes: [],
     referrals: []
   };
+  
+  // Default to level 1 for new referrers (can be refreshed later)
+  const { level, maxReferrals, unusedCodes } = refreshLevel(newReferrer);
+  // Generate initial codes based on level  
   
   // Add to the list and save
   referrers.push(newReferrer);
@@ -296,7 +289,7 @@ const addReferrer = async (address: string, username: string, discordId: string)
     success: true,
     level, 
     maxReferrals, 
-    codes 
+    codes: unusedCodes
   };
 };
 
@@ -353,8 +346,7 @@ const logReferral = async (
     address: referralAddress,
     SUPincome: "0"
   });
-  
-  await eligibilityService.checkEligibility([referralAddress]);
+  stackApiService.assignPoints(referralAddress, REFERRAL_REWARD, "referral_reward");
   // Save changes
   await writeReferrersData(referrers);
   
@@ -451,7 +443,7 @@ const updateAllSUPIncomes = async (): Promise<void> => {
       updatedReferrers[i].SUPincome = referrerSUPIncome;
       
       // Update level and max referrals based on new income
-      const { level, maxReferrals } = determineLevel(referrerSUPIncome + referrer.referrals.reduce((sum, referral) => sum + BigInt(referral.SUPincome), BigInt(0)));
+      const { level, maxReferrals } = refreshLevel(referrer);
       updatedReferrers[i].level = level;
       updatedReferrers[i].maxReferrals = maxReferrals;
       
@@ -495,19 +487,18 @@ const refreshReferrerData = async (address: string): Promise<Referrer | null> =>
       r.address.toLowerCase() === address.toLowerCase()
     );
     
-    if (referrerIndex !== -1) {
       // Update the referrer's SUP income from blockchain
       const newSUPIncome = await fetchSUPIncomeFromBlockchain(address);
       referrers[referrerIndex].SUPincome = newSUPIncome;
       
       // Update level and maxReferrals based on new SUP income
-      const { level, maxReferrals } = determineLevel(newSUPIncome);
+      const { level, maxReferrals } = refreshLevel(referrers[referrerIndex]);
       referrers[referrerIndex].level = level;
       referrers[referrerIndex].maxReferrals = maxReferrals;
       
       // Update SUP income for each referral
-      for (let i = 0; i < referrers[referrerIndex].referrals.length; i++) {
-        const referral = referrers[referrerIndex].referrals[i];
+      for (let i = 0; i < referrer.referrals.length; i++) {
+        const referral = referrer.referrals[i];
         const referralSUPIncome = await fetchSUPIncomeFromBlockchain(referral.address);
         referrers[referrerIndex].referrals[i].SUPincome = referralSUPIncome;
       }
@@ -517,10 +508,8 @@ const refreshReferrerData = async (address: string): Promise<Referrer | null> =>
       await discordService.postLeaderboard(referrers);
       // Return the updated referrer
       return referrers[referrerIndex];
-    }
-  }
-  
-  return referrer;
+  }     
+  return null;
 };
 
 /**

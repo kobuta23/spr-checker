@@ -2,7 +2,7 @@
    * Format SUP income to be more readable (in SUP/month)
    */
   export function formatSUPIncome(weiPerSecond: string, units: string = 'SUP/month'): string {
-    if (weiPerSecond === '0') return '0';
+    if (weiPerSecond === '0') return `0 ${units}`;
     
     try {
       const bigWeiPerSecond = BigInt(weiPerSecond);
