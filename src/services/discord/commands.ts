@@ -203,6 +203,7 @@ async function signUp(interaction: ChatInputCommandInteraction): Promise<void> {
   const p = await referralService.addReferrer(address, interaction.user.displayName, interaction.user.id);
   if (p.success) {
     console.log("user registered: ", p);
+    logger.discordNotify(`User ${interaction.user.username} registered with address ${address}`);
     await interaction.editReply('Address registered successfully.');
     await interaction.followUp({ content: 'You can now use the `/get-codes` command to get your referral codes.', ephemeral: true });
   } else {
