@@ -46,7 +46,7 @@ export const createLeaderboardEmbed = (referrers: Referrer[]): EmbedBuilder => {
       // Add fields in groups to avoid hitting embed limits
       if (index % 5 === 4 || index === topReferrers.length - 1) {
         embed.addFields({ 
-          name: index === 4 ? 'Top 5 Referrers' : `Levels ${index - (index % 5) + 1}-${index + 1}`,
+          name: index === 4 ? 'Top 5 Referrers' : `Ranks ${index - (index % 5) + 1}-${index + 1}`,
           value: leaderboardText || 'No data',
           inline: false
         });
