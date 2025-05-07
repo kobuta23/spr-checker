@@ -26,6 +26,7 @@ export interface Referrer {
   maxReferrals: number;
   unusedCodes: string[];
   referrals: Referral[];
+  hidden?: boolean;
 }
 
 // Path to the JSON data file
@@ -550,8 +551,11 @@ const getAvailableCodes = async (referrer: Referrer): Promise<{
 const _getSortedReferrers = async (): Promise<Referrer[]> => {
   const referrers = await getAllReferrers();
   
+  // Filter out hidden referrers
+  const visibleReferrers = referrers.filter(r => !r.hidden);
+  
   // Calculate total SUPincome for each referrer's referrals
-  return referrers.sort((a, b) => {
+  return visibleReferrers.sort((a, b) => {
     const aTotalSUPincome = a.referrals.reduce(
       (sum, referral) => sum + BigInt(referral.SUPincome), 
       BigInt(0)
@@ -635,6 +639,111 @@ const getEnrichedReferrerData = (referrer: Referrer) => {
     referrals: sortedReferrals
   };
 };
+
+/**
+ * Hide a referrer from the leaderboard by discord ID
+ * @param discordId Discord ID of the referrer to hide
+ * @returns The hidden referrer data or null if not found
+ */
+const hideReferrer = async (discordId: string): Promise<Referrer | null> => {
+  try {
+    // Get all referrers
+    const referrers = await getAllReferrers();
+    
+    // Find the referrer with the given discord ID
+    const referrerIndex = referrers.findIndex(r => r.discordId === discordId);
+    
+    if (referrerIndex === -1) {
+      logger.warn(`Attempted to hide non-existent referrer with discord ID: ${discordId}`);
+      return null;
+    }
+    
+    // Get a copy of the referrer data for logging purposes
+    const referrerData = {...referrers[referrerIndex]};
+    
+    // Set the hidden flag to true
+    referrers[referrerIndex].hidden = true;
+    
+    // Save the updated referrers data
+    await writeReferrersData(referrers);
+    
+    // Clear relevant caches
+    halfDayCache.delete('sorted-referrers');
+    halfDayCache.delete(`referrer-${referrers[referrerIndex].address.toLowerCase()}`);
+    
+    logger.info(`Referrer with discord ID ${discordId} has been hidden from the leaderboard`);
+    
+    // Return the hidden referrer data
+    return referrerData;
+  } catch (error) {
+    logger.error(`Failed to hide referrer with discord ID ${discordId}`, { error });
+    throw new Error(`Failed to hide referrer: ${error instanceof Error ? error.message : String(error)}`);
+  }
+};
+
+/**
+ * Unhide a referrer in the leaderboard by discord ID
+ * @param discordId Discord ID of the referrer to unhide
+ * @returns The unhidden referrer data or null if not found
+ */
+const unhideReferrer = async (discordId: string): Promise<Referrer | null> => {
+  try {
+    // Get all referrers
+    const referrers = await getAllReferrers();
+    
+    // Find the referrer with the given discord ID
+    const referrerIndex = referrers.findIndex(r => r.discordId === discordId);
+    
+    if (referrerIndex === -1) {
+      logger.warn(`Attempted to unhide non-existent referrer with discord ID: ${discordId}`);
+      return null;
+    }
+    
+    // Get a copy of the referrer data
+    const referrerData = {...referrers[referrerIndex]};
+    
+    // Set the hidden flag to false (or remove it)
+    referrers[referrerIndex].hidden = false;
+    
+    // Save the updated referrers data
+    await writeReferrersData(referrers);
+    
+    // Clear relevant caches
+    halfDayCache.delete('sorted-referrers');
+    halfDayCache.delete(`referrer-${referrers[referrerIndex].address.toLowerCase()}`);
+    
+    logger.info(`Referrer with discord ID ${discordId} has been unhidden from the leaderboard`);
+    
+    // Return the unhidden referrer data
+    return referrerData;
+  } catch (error) {
+    logger.error(`Failed to unhide referrer with discord ID ${discordId}`, { error });
+    throw new Error(`Failed to unhide referrer: ${error instanceof Error ? error.message : String(error)}`);
+  }
+};
+
+/**
+ * Find a referrer by username (case insensitive)
+ * @param username The username to search for
+ * @returns The referrer with the matching username or null if not found
+ */
+const findReferrerByUsername = async (username: string): Promise<Referrer | null> => {
+  try {
+    // Get all referrers
+    const referrers = await getAllReferrers();
+    
+    // Find the referrer with a case-insensitive username match
+    const referrer = referrers.find(r => 
+      r.username.toLowerCase() === username.toLowerCase()
+    );
+    
+    return referrer || null;
+  } catch (error) {
+    logger.error(`Failed to find referrer by username ${username}`, { error });
+    return null;
+  }
+};
+
 initializeDataFile()
 // Export all the functions that should be available to other modules
 export {
@@ -642,6 +751,7 @@ export {
   getSortedReferrers,
   getReferrerByAddress,
   getReferrerByDiscordId,
+  findReferrerByUsername,
   addReferrer,
   logReferral,
   refreshReferrerData,
@@ -651,5 +761,7 @@ export {
   validateReferralCode,
   getReferrerCodesByAddress,
   postLeaderboard,
-  getEnrichedReferrerData
+  getEnrichedReferrerData,
+  hideReferrer,
+  unhideReferrer
 }; 
