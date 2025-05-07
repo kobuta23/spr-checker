@@ -25,7 +25,7 @@ export const createLeaderboardEmbed = (referrers: Referrer[]): EmbedBuilder => {
       const totalSUPincome = referrer.referrals.reduce(
         (sum, referral) => sum + BigInt(referral.SUPincome), 
         BigInt(0)
-      ) + BigInt(referrer.SUPincome);
+      );
       
       // Format the username to fixed width
       const username = referrer.username.length > 15 
