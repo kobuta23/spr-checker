@@ -16,11 +16,11 @@ class StackApiService {
 
   constructor() {
     this.baseUrl = config.stackApiBaseUrl;
-    if(!process.env.STACK_API_KEY) {
+    if (!process.env.STACK_API_KEY) {
       throw new Error('STACK_API_KEY is not set');
     }
     this.apiKey = process.env.STACK_API_KEY || '';
-    if(!process.env.STACK_WRITE_API_KEY) {
+    if (!process.env.STACK_WRITE_API_KEY) {
       throw new Error('STACK_WRITE_API_KEY is not set');
     }
     this.writeApiKey = process.env.STACK_WRITE_API_KEY;
@@ -36,11 +36,11 @@ class StackApiService {
   async fetchAllocations(pointSystemId: number, addresses: string[]): Promise<StackAllocation[]> {
     try {
       const url = `${this.baseUrl}/point-system/${pointSystemId}/allocations`;
-      
+
       logger.info(`Fetching allocations from ${url} for ${addresses.length} addresses`);
-      
-      const response = await axios.post<StackApiResponse>(url, 
-        { addresses }, 
+
+      const response = await axios.post<StackApiResponse>(url,
+        { addresses },
         {
           headers: {
             'x-api-key': this.apiKey,
@@ -62,7 +62,7 @@ class StackApiService {
    */
   async fetchAllAllocations(addresses: string[]): Promise<Map<number, StackAllocation[]>> {
     const allAllocations = new Map<number, StackAllocation[]>();
-    
+
     // Use Promise.all to fetch from all point systems in parallel
     await Promise.all(
       config.pointSystems.map(async (pointSystem) => {
@@ -71,6 +71,8 @@ class StackApiService {
           allAllocations.set(pointSystem.id, allocations);
         } catch (error) {
           logger.error(`Error fetching allocations for point system ${pointSystem.id}`, { error });
+          // Send a Slack notification when a specific program eligibility check fails
+          logger.slackNotify(`Failed to check eligibility for program (ID: ${pointSystem.id}) for addresses: ${addresses.join(', ')}. Error: ${error}`);
           // Set empty array for failed point system to maintain consistency
           allAllocations.set(pointSystem.id, []);
         }
@@ -100,7 +102,7 @@ class StackApiService {
         "uniqueId": uniqueId,
         "points": points
       }]
-      const response = await axios.post(url, 
+      const response = await axios.post(url,
         data,
         {
           headers: {
@@ -195,7 +197,7 @@ const _getStackActivity = async (address: string, pointSystemId: number): Promis
       }).toString();
 
       const key = getStackApiKey(pointSystemId) || '';
-      console.log("api key being used for point system: ", pointSystemId," : ", key);
+      console.log("api key being used for point system: ", pointSystemId, " : ", key);
 
       const response = await axios.get(url.toString(), {
         headers: {
@@ -247,7 +249,7 @@ let getStackActivityMemoized = _getStackActivity;
   try {
     const pMemoizeModule = await import('p-memoize');
     const pMemoize = pMemoizeModule.default;
-    
+
     // Now set up memoized versions
     getStackActivityForAllPointSystemsMemoized = pMemoize(_getStackActivityForAllPointSystems, {
       cache: halfDayCache,
@@ -262,7 +264,7 @@ let getStackActivityMemoized = _getStackActivity;
         return "stack-activity-" + address.toLowerCase() + "-" + pointSystemId;
       }
     });
-    
+
     logger.info('Successfully set up memoized Stack API functions');
   } catch (error) {
     logger.error('Failed to import p-memoize, using non-memoized versions as fallback', { error });
