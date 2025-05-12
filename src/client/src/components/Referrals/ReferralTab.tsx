@@ -33,7 +33,7 @@ const ReferralTab: React.FC = () => {
       
       const response = await referralApi.logReferral({
         referralAddress: address.trim(),
-        referrerCode: referralCode.trim()
+        referralCode: referralCode.trim()
       });
       
       if (response.success) {

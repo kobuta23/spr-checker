@@ -44,7 +44,7 @@ export interface AddReferrerResponse {
 
 export interface LogReferralRequest {
   referralAddress: string;
-  referrerCode: string;
+  referralCode: string;
 }
 
 export interface LogReferralResponse {
